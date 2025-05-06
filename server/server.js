@@ -4,58 +4,37 @@ const app = express();
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
     cors: {
-        origin: "http://localhost:3000",
+        origin: ["http://localhost:3000", "http://68.148.232.107:3000"],
         methods: ["GET", "POST"],
     },
 });
 
-const users = {};
-
-const socketToRoom = {};
+let users = [];
 
 io.on("connection", (socket) => {
-    socket.on("joinRoom", (roomID) => {
-        if (users[roomID]) {
-            const length = users[roomID].length;
-
-            if (length === 4) {
-                socket.emit("roomFull");
-                return;
-            }
-
-            users[roomID].push(socket.id);
-        } else {
-            users[roomID] = [socket.id];
-        }
-
-        socketToRoom[socket.id] = roomID;
-        const usersInThisRoom = users[roomID].filter((id) => id !== socket.id);
-
-        socket.emit("allUsers", usersInThisRoom);
-    });
-
-    socket.on("sendingSignal", (payload) => {
-        io.to(payload.callerID).emit("userJoined", {
-            signal: payload.signal,
-            callerID: payload.callerID,
-        });
-    });
-
-    socket.on("returningSignal", (payload) => {
-        io.to(payload.callerID).emit("receivingReturnedSignal", {
-            signal: payload.signal,
-            callerID: payload.callerID,
-        });
-    });
+    socket.emit("me", socket.id);
 
     socket.on("disconnect", () => {
-        const roomID = socketToRoom[socket.id];
-        let room = users[roomID];
-        if (room) {
-            room = room.filter((id) => id !== socket.id);
-            users[roomID] = room;
-        }
+        socket.broadcast.emit("callEnded");
+    });
+
+    socket.on("getId", () => {
+        socket.emit("me", socket.id);
+    });
+
+    socket.on("callUser", (data) => {
+        io.to(data.userToCall).emit("callUser", {
+            signal: data.signalData,
+            from: data.from,
+            name: data.name,
+        });
+    });
+
+    socket.on("answerCall", (data) => {
+        io.to(data.to).emit("callAccepted", data.signal);
     });
 });
 
-server.listen(5000, () => console.log("server is running on port 5000"));
+server.listen(5000, "0.0.0.0", () =>
+    console.log("server is running on port 5000")
+);

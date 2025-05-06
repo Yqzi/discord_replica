@@ -4,6 +4,7 @@ import Peer from "simple-peer";
 import * as io from "socket.io-client";
 import { TextField, Button, IconButton } from "@mui/material";
 import { Phone, Assignment } from "@mui/icons-material";
+import User from "./user";
 
 const socket = io.connect("http://localhost:5000");
 
@@ -17,10 +18,22 @@ export default function Home() {
     const [idToCall, setIdToCall] = useState<string>("");
     const [callEnded, setCallEnded] = useState<boolean>(false);
     const [name, setName] = useState<string>("");
+    const [callerName, setCallerName] = useState<string>("");
+
+    // const [stream2, setStream2] = useState<MediaStream | undefined>(undefined);
+    const [recievingCall2, SetRecievingCall2] = useState<boolean>(false);
+    const [callAccepted2, setCallAccepted2] = useState<boolean>(false);
+    const [idToCall2, setIdToCall2] = useState<string>("");
+    const [callEnded2, setCallEnded2] = useState<boolean>(false);
+    const [name2, setName2] = useState<string>("");
 
     const myVideo = useRef<HTMLVideoElement | null>(null);
     const userVideo = useRef<HTMLVideoElement | null>(null);
+    const userVideo2 = useRef<HTMLVideoElement | null>(null);
     const connectionRef = useRef<any>(null);
+    const connectionRef2 = useRef<any>(null);
+
+    let isUserOneConnected: boolean = false;
 
     useEffect(() => {
         navigator.mediaDevices
@@ -46,7 +59,7 @@ export default function Home() {
         socket.on("callUser", (data) => {
             SetRecievingCall(true);
             setCaller(data.from);
-            setName(data.name);
+            setCallerName(data.name);
             setCallerSignal(data.signal);
         });
 
@@ -57,7 +70,7 @@ export default function Home() {
     }, [me]);
 
     const getId = () => {
-        socket.emit("getId"); // Request a new ID from the server
+        socket.emit("getId");
         socket.on("me", (id) => {
             console.log("Received new ID:", id);
             setMe(id);
@@ -76,21 +89,25 @@ export default function Home() {
                 userToCall: id,
                 signalData: data,
                 from: me,
-                name: name,
+                name: !isUserOneConnected ? name : name2,
             });
         });
 
         peer.on("stream", (stream) => {
             // could have null error
-            userVideo.current!.srcObject = stream;
+            if (!isUserOneConnected) {
+                userVideo.current!.srcObject = stream;
+                isUserOneConnected = true;
+            } else userVideo2.current!.srcObject = stream;
         });
 
         socket.on("callAccepted", (signal) => {
-            setCallAccepted(true);
+            if (!isUserOneConnected) setCallAccepted(true);
+            else setCallAccepted2(true);
             peer.signal(signal);
         });
-
-        connectionRef.current = peer;
+        if (!isUserOneConnected) connectionRef.current = peer;
+        else connectionRef2.current = peer;
     };
 
     useEffect(() => {
@@ -99,7 +116,7 @@ export default function Home() {
         }
     }, [stream]);
 
-    const answerCall = () => {
+    const answerCall = (id: string) => {
         setCallAccepted(true);
         const peer = new Peer({
             initiator: false,
@@ -116,17 +133,23 @@ export default function Home() {
 
         peer.on("stream", (stream) => {
             // can have null error
-            userVideo.current!.srcObject = stream;
+            if (!isUserOneConnected) userVideo.current!.srcObject = stream;
+            else userVideo2.current!.srcObject = stream;
         });
 
         peer.signal(callerSignal);
-
-        connectionRef.current = peer;
+        if (!isUserOneConnected) connectionRef.current = peer;
+        else connectionRef2.current = peer;
     };
 
-    const leaveCall = () => {
-        setCallEnded(true);
-        connectionRef.current.destroy();
+    const leaveCall = (id: string) => {
+        if (!isUserOneConnected) {
+            setCallEnded(true);
+            connectionRef.current.destroy();
+        } else {
+            setCallEnded2(true);
+            connectionRef2.current.destroy();
+        }
     };
 
     return (
@@ -152,6 +175,16 @@ export default function Home() {
                             <video
                                 playsInline
                                 ref={userVideo}
+                                autoPlay
+                                className="w-full h-full object-cover"
+                            />
+                        ) : null}
+                    </div>
+                    <div className="w-72 h-72 bg-black flex items-center justify-center">
+                        {callAccepted2 && !callEnded2 ? (
+                            <video
+                                playsInline
+                                ref={userVideo2}
                                 autoPlay
                                 className="w-full h-full object-cover"
                             />
@@ -219,7 +252,9 @@ export default function Home() {
                             <Button
                                 variant="contained"
                                 color="secondary"
-                                onClick={leaveCall}
+                                onClick={() => {
+                                    leaveCall(me);
+                                }}
                                 className="w-36"
                             >
                                 End Call
@@ -240,12 +275,14 @@ export default function Home() {
                     {recievingCall && !callAccepted ? (
                         <div className="flex flex-col items-center space-y-4">
                             <h1 className="text-xl font-bold">
-                                {name} is calling...
+                                {callerName} is calling...
                             </h1>
                             <Button
                                 variant="contained"
                                 color="primary"
-                                onClick={answerCall}
+                                onClick={() => {
+                                    answerCall(me);
+                                }}
                                 className="w-36"
                             >
                                 Answer
