@@ -9,8 +9,6 @@ const io = require("socket.io")(server, {
     },
 });
 
-let users = [];
-
 io.on("connection", (socket) => {
     socket.emit("me", socket.id);
 
