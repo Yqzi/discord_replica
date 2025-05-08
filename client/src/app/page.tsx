@@ -33,7 +33,8 @@ export default function Home() {
     const connectionRef = useRef<any>(null);
     const connectionRef2 = useRef<any>(null);
 
-    let isUserOneConnected: boolean = false;
+    const [isUserOneConnected, setIsUserOneConnected] =
+        useState<boolean>(false);
 
     useEffect(() => {
         navigator.mediaDevices
@@ -95,10 +96,15 @@ export default function Home() {
 
         peer.on("stream", (stream) => {
             // could have null error
+            console.log(`isUserOneConnected: ${isUserOneConnected}`);
             if (!isUserOneConnected) {
                 userVideo.current!.srcObject = stream;
-                isUserOneConnected = true;
-            } else userVideo2.current!.srcObject = stream;
+                setIsUserOneConnected(true);
+                console.log("THIS IS WHEN CAMERA");
+            } else {
+                userVideo2.current!.srcObject = stream;
+                console.log("THIS IS WHEN CAMERA 2");
+            }
         });
 
         socket.on("callAccepted", (signal) => {
@@ -248,7 +254,15 @@ export default function Home() {
                         className="w-72"
                     />
                     <div className="flex flex-row items-center space-x-4">
-                        {callAccepted && !callEnded ? (
+                        <IconButton
+                            color="primary"
+                            aria-label="call"
+                            onClick={() => callUser(idToCall)}
+                            className="w-12 h-12"
+                        >
+                            <Phone fontSize="large" />
+                        </IconButton>
+                        {callAccepted && !callEnded && (
                             <Button
                                 variant="contained"
                                 color="secondary"
@@ -259,15 +273,6 @@ export default function Home() {
                             >
                                 End Call
                             </Button>
-                        ) : (
-                            <IconButton
-                                color="primary"
-                                aria-label="call"
-                                onClick={() => callUser(idToCall)}
-                                className="w-12 h-12"
-                            >
-                                <Phone fontSize="large" />
-                            </IconButton>
                         )}
                     </div>
                 </div>
