@@ -58,7 +58,8 @@ export default function Home() {
         }
 
         socket.on("callUser", (data) => {
-            SetRecievingCall(true);
+            if (!isUserOneConnected) SetRecievingCall(true);
+            else SetRecievingCall2(true);
             setCaller(data.from);
             setCallerName(data.name);
             setCallerSignal(data.signal);
@@ -123,7 +124,8 @@ export default function Home() {
     }, [stream]);
 
     const answerCall = (id: string) => {
-        setCallAccepted(true);
+        if (!isUserOneConnected) setCallAccepted(true);
+        else setCallAccepted2(true);
         const peer = new Peer({
             initiator: false,
             trickle: false,
@@ -249,15 +251,23 @@ export default function Home() {
                         id="filled-basic"
                         label="ID to call"
                         variant="filled"
-                        value={idToCall}
-                        onChange={(e) => setIdToCall(e.target.value)}
+                        value={!isUserOneConnected ? idToCall : idToCall2}
+                        onChange={(e) => {
+                            if (!isUserOneConnected)
+                                setIdToCall(e.target.value);
+                            else setIdToCall2(e.target.value);
+                        }}
                         className="w-72"
                     />
                     <div className="flex flex-row items-center space-x-4">
                         <IconButton
                             color="primary"
                             aria-label="call"
-                            onClick={() => callUser(idToCall)}
+                            onClick={() =>
+                                callUser(
+                                    !isUserOneConnected ? idToCall : idToCall2
+                                )
+                            }
                             className="w-12 h-12"
                         >
                             <Phone fontSize="large" />
