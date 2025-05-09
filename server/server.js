@@ -21,7 +21,7 @@ io.on("connection", (socket) => {
     });
 
     socket.on("callUser", (data) => {
-        io.to(data.userToCall).emit("callUser", {
+        io.to(data.userToCall).emit("callUser2", {
             signal: data.signalData,
             from: data.from,
             name: data.name,

@@ -25,7 +25,6 @@ export default function Home() {
     const [callAccepted2, setCallAccepted2] = useState<boolean>(false);
     const [idToCall2, setIdToCall2] = useState<string>("");
     const [callEnded2, setCallEnded2] = useState<boolean>(false);
-    const [name2, setName2] = useState<string>("");
 
     const myVideo = useRef<HTMLVideoElement | null>(null);
     const userVideo = useRef<HTMLVideoElement | null>(null);
@@ -57,7 +56,7 @@ export default function Home() {
             getId();
         }
 
-        socket.on("callUser", (data) => {
+        socket.on("callUser2", (data) => {
             if (!isUserOneConnected) SetRecievingCall(true);
             else SetRecievingCall2(true);
             setCaller(data.from);
@@ -67,7 +66,7 @@ export default function Home() {
 
         return () => {
             socket.off("me");
-            socket.off("callUser");
+            socket.off("callUser2");
         };
     }, [me]);
 
@@ -91,7 +90,7 @@ export default function Home() {
                 userToCall: id,
                 signalData: data,
                 from: me,
-                name: !isUserOneConnected ? name : name2,
+                name: name,
             });
         });
 
@@ -288,6 +287,25 @@ export default function Home() {
                 </div>
                 <div className="mt-8">
                     {recievingCall && !callAccepted ? (
+                        <div className="flex flex-col items-center space-y-4">
+                            <h1 className="text-xl font-bold">
+                                {callerName} is calling...
+                            </h1>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={() => {
+                                    answerCall(me);
+                                }}
+                                className="w-36"
+                            >
+                                Answer
+                            </Button>
+                        </div>
+                    ) : null}
+                </div>
+                <div className="mt-8">
+                    {recievingCall2 && !callAccepted ? (
                         <div className="flex flex-col items-center space-y-4">
                             <h1 className="text-xl font-bold">
                                 {callerName} is calling...
