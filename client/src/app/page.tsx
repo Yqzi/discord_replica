@@ -244,7 +244,7 @@ export default function Home() {
                         }}
                         className="w-72"
                     >
-                        Copy ID
+                        COPY ID
                     </Button>
                     <TextField
                         id="filled-basic"
