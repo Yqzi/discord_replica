@@ -280,7 +280,7 @@ export default function Home() {
                                 }}
                                 className="w-36"
                             >
-                                End Call
+                                END CALL
                             </Button>
                         )}
                     </div>
