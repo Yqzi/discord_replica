@@ -214,7 +214,7 @@ export default function Home() {
                             onClick={getId}
                             className="w-72"
                         >
-                            Get ID
+                            GET ID
                         </Button>
                     )}
                     <Button
