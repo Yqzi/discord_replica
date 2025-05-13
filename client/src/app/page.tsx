@@ -299,7 +299,7 @@ export default function Home() {
                                 }}
                                 className="w-36"
                             >
-                                Answer
+                                ANSWER
                             </Button>
                         </div>
                     ) : null}
