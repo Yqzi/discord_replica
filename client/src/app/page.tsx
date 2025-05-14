@@ -5,325 +5,199 @@ import * as io from "socket.io-client";
 import { TextField, Button, IconButton } from "@mui/material";
 import { Phone, Assignment } from "@mui/icons-material";
 import User from "./user";
-
-const socket = io.connect("http://localhost:5000");
+import firebase from "firebase/app";
+import "firebase/firestore";
 
 export default function Home() {
-    const [me, setMe] = useState<string>("");
-    const [stream, setStream] = useState<MediaStream | undefined>(undefined);
-    const [recievingCall, SetRecievingCall] = useState<boolean>(false);
-    const [caller, setCaller] = useState<string>("");
-    const [callerSignal, setCallerSignal] = useState<any>(undefined);
-    const [callAccepted, setCallAccepted] = useState<boolean>(false);
-    const [idToCall, setIdToCall] = useState<string>("");
-    const [callEnded, setCallEnded] = useState<boolean>(false);
-    const [name, setName] = useState<string>("");
-    const [callerName, setCallerName] = useState<string>("");
-
-    // const [stream2, setStream2] = useState<MediaStream | undefined>(undefined);
-    const [recievingCall2, SetRecievingCall2] = useState<boolean>(false);
-    const [callAccepted2, setCallAccepted2] = useState<boolean>(false);
-    const [idToCall2, setIdToCall2] = useState<string>("");
-    const [callEnded2, setCallEnded2] = useState<boolean>(false);
-
-    const myVideo = useRef<HTMLVideoElement | null>(null);
-    const userVideo = useRef<HTMLVideoElement | null>(null);
-    const userVideo2 = useRef<HTMLVideoElement | null>(null);
-    const connectionRef = useRef<any>(null);
-    const connectionRef2 = useRef<any>(null);
-
-    const [isUserOneConnected, setIsUserOneConnected] =
-        useState<boolean>(false);
-
-    useEffect(() => {
-        navigator.mediaDevices
-            .getUserMedia({
-                audio: true,
-                video: true,
-            })
-            .then((stream) => {
-                setStream(stream);
-                if (myVideo.current) {
-                    myVideo.current.srcObject = stream; // Ensure myVideo.current is not null
-                }
-            })
-            .catch((error) => {
-                console.error("Error accessing media devices:", error);
-            });
-
-        if (!me) {
-            console.log("No ID found, requesting a new one...");
-            getId();
-        }
-
-        socket.on("callUser2", (data) => {
-            if (!isUserOneConnected) SetRecievingCall(true);
-            else SetRecievingCall2(true);
-            setCaller(data.from);
-            setCallerName(data.name);
-            setCallerSignal(data.signal);
-        });
-
-        return () => {
-            socket.off("me");
-            socket.off("callUser2");
-        };
-    }, [me]);
-
-    const getId = () => {
-        socket.emit("getId");
-        socket.on("me", (id) => {
-            console.log("Received new ID:", id);
-            setMe(id);
-        });
+    const firebaseConfig = {
+        // your config
     };
 
-    const callUser = (id: string) => {
-        const peer = new Peer({
-            initiator: true,
-            trickle: false,
-            stream: stream,
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const firestore = firebase.firestore();
+
+    const servers = {
+        iceServers: [
+            {
+                urls: [
+                    "stun:stun1.l.google.com:19302",
+                    "stun:stun2.l.google.com:19302",
+                ],
+            },
+        ],
+        iceCandidatePoolSize: 10,
+    };
+
+    // Global State
+    const pc = new RTCPeerConnection(servers);
+    let localStream = null;
+    let remoteStream = null;
+
+    // HTML elements
+    const webcamButton = document.getElementById("webcamButton");
+    const webcamVideo = document.getElementById("webcamVideo");
+    const callButton = document.getElementById("callButton");
+    const callInput = document.getElementById("callInput");
+    const answerButton = document.getElementById("answerButton");
+    const remoteVideo = document.getElementById("remoteVideo");
+    const hangupButton = document.getElementById("hangupButton");
+
+    // 1. Setup media sources
+
+    webcamButton.onclick = async () => {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+        });
+        remoteStream = new MediaStream();
+
+        // Push tracks from local stream to peer connection
+        localStream.getTracks().forEach((track) => {
+            pc.addTrack(track, localStream);
         });
 
-        peer.on("signal", (data) => {
-            socket.emit("callUser", {
-                userToCall: id,
-                signalData: data,
-                from: me,
-                name: name,
+        // Pull tracks from remote stream, add to video stream
+        pc.ontrack = (event) => {
+            event.streams[0].getTracks().forEach((track) => {
+                remoteStream.addTrack(track);
             });
-        });
+        };
 
-        peer.on("stream", (stream) => {
-            // could have null error
-            console.log(`isUserOneConnected: ${isUserOneConnected}`);
-            if (!isUserOneConnected) {
-                userVideo.current!.srcObject = stream;
-                setIsUserOneConnected(true);
-                console.log("THIS IS WHEN CAMERA");
-            } else {
-                userVideo2.current!.srcObject = stream;
-                console.log("THIS IS WHEN CAMERA 2");
+        webcamVideo.srcObject = localStream;
+        remoteVideo.srcObject = remoteStream;
+
+        callButton.disabled = false;
+        answerButton.disabled = false;
+        webcamButton.disabled = true;
+    };
+
+    // 2. Create an offer
+    callButton.onclick = async () => {
+        // Reference Firestore collections for signaling
+        const callDoc = firestore.collection("calls").doc();
+        const offerCandidates = callDoc.collection("offerCandidates");
+        const answerCandidates = callDoc.collection("answerCandidates");
+
+        callInput.value = callDoc.id;
+
+        // Get candidates for caller, save to db
+        pc.onicecandidate = (event) => {
+            event.candidate && offerCandidates.add(event.candidate.toJSON());
+        };
+
+        // Create offer
+        const offerDescription = await pc.createOffer();
+        await pc.setLocalDescription(offerDescription);
+
+        const offer = {
+            sdp: offerDescription.sdp,
+            type: offerDescription.type,
+        };
+
+        await callDoc.set({ offer });
+
+        // Listen for remote answer
+        callDoc.onSnapshot((snapshot) => {
+            const data = snapshot.data();
+            if (!pc.currentRemoteDescription && data?.answer) {
+                const answerDescription = new RTCSessionDescription(
+                    data.answer
+                );
+                pc.setRemoteDescription(answerDescription);
             }
         });
 
-        socket.on("callAccepted", (signal) => {
-            if (!isUserOneConnected) setCallAccepted(true);
-            else setCallAccepted2(true);
-            peer.signal(signal);
-        });
-        if (!isUserOneConnected) connectionRef.current = peer;
-        else connectionRef2.current = peer;
-    };
-
-    useEffect(() => {
-        if (myVideo.current && stream) {
-            myVideo.current.srcObject = stream;
-        }
-    }, [stream]);
-
-    const answerCall = (id: string) => {
-        if (!isUserOneConnected) setCallAccepted(true);
-        else setCallAccepted2(true);
-        const peer = new Peer({
-            initiator: false,
-            trickle: false,
-            stream: stream,
-        });
-
-        peer.on("signal", (data) => {
-            socket.emit("answerCall", {
-                signal: data,
-                to: caller,
+        // When answered, add candidate to peer connection
+        answerCandidates.onSnapshot((snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added") {
+                    const candidate = new RTCIceCandidate(change.doc.data());
+                    pc.addIceCandidate(candidate);
+                }
             });
         });
 
-        peer.on("stream", (stream) => {
-            // can have null error
-            if (!isUserOneConnected) userVideo.current!.srcObject = stream;
-            else userVideo2.current!.srcObject = stream;
-        });
-
-        peer.signal(callerSignal);
-        if (!isUserOneConnected) connectionRef.current = peer;
-        else connectionRef2.current = peer;
+        hangupButton.disabled = false;
     };
 
-    const leaveCall = (id: string) => {
-        if (!isUserOneConnected) {
-            setCallEnded(true);
-            connectionRef.current.destroy();
-        } else {
-            setCallEnded2(true);
-            connectionRef2.current.destroy();
-        }
+    // 3. Answer the call with the unique ID
+    answerButton.onclick = async () => {
+        const callId = callInput.value;
+        const callDoc = firestore.collection("calls").doc(callId);
+        const answerCandidates = callDoc.collection("answerCandidates");
+        const offerCandidates = callDoc.collection("offerCandidates");
+
+        pc.onicecandidate = (event) => {
+            event.candidate && answerCandidates.add(event.candidate.toJSON());
+        };
+
+        const callData = (await callDoc.get()).data();
+
+        const offerDescription = callData.offer;
+        await pc.setRemoteDescription(
+            new RTCSessionDescription(offerDescription)
+        );
+
+        const answerDescription = await pc.createAnswer();
+        await pc.setLocalDescription(answerDescription);
+
+        const answer = {
+            type: answerDescription.type,
+            sdp: answerDescription.sdp,
+        };
+
+        await callDoc.update({ answer });
+
+        offerCandidates.onSnapshot((snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                console.log(change);
+                if (change.type === "added") {
+                    let data = change.doc.data();
+                    pc.addIceCandidate(new RTCIceCandidate(data));
+                }
+            });
+        });
     };
 
     return (
         <>
-            <h1 className="text-center text-white text-4xl font-bold mb-8">
-                CALLER TEST
-            </h1>
-            <div className="flex flex-col items-center">
-                <div className="flex flex-row justify-center space-x-4 mb-8">
-                    <div className="w-72 h-72 bg-black flex items-center justify-center">
-                        {stream && (
-                            <video
-                                playsInline
-                                muted
-                                ref={myVideo}
-                                autoPlay
-                                className="w-full h-full object-cover"
-                            />
-                        )}
-                    </div>
-                    <div className="w-72 h-72 bg-black flex items-center justify-center">
-                        {callAccepted && !callEnded ? (
-                            <video
-                                playsInline
-                                ref={userVideo}
-                                autoPlay
-                                className="w-full h-full object-cover"
-                            />
-                        ) : null}
-                    </div>
-                    <div className="w-72 h-72 bg-black flex items-center justify-center">
-                        {callAccepted2 && !callEnded2 ? (
-                            <video
-                                playsInline
-                                ref={userVideo2}
-                                autoPlay
-                                className="w-full h-full object-cover"
-                            />
-                        ) : null}
-                    </div>
+            <body>
+                <h2>1. Start your Webcam</h2>
+                <div className="videos">
+                    <span>
+                        <h3>Local Stream</h3>
+                        <video id="webcamVideo" autoPlay playsInline></video>
+                    </span>
+                    <span>
+                        <h3>Remote Stream</h3>
+                        <video id="remoteVideo" autoPlay playsInline></video>
+                    </span>
                 </div>
-                <div className="flex flex-col items-center space-y-4">
-                    <TextField
-                        id="filled-basic"
-                        label="Name"
-                        variant="filled"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-72"
-                    />
-                    {!me && (
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={getId}
-                            className="w-72"
-                        >
-                            GET ID
-                        </Button>
-                    )}
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<Assignment fontSize="large" />}
-                        onClick={() => {
-                            console.log(`meemememememememememe ${me}`);
-                            if (navigator.clipboard) {
-                                navigator.clipboard
-                                    .writeText(me)
-                                    .then(() => {})
-                                    .catch((err) => {
-                                        console.error("Failed to copy:", err);
-                                    });
-                            } else {
-                                // Fallback for unsupported browsers
-                                const textArea =
-                                    document.createElement("textarea");
-                                textArea.value = me;
-                                document.body.appendChild(textArea);
-                                textArea.select();
-                                document.execCommand("copy");
-                                document.body.removeChild(textArea);
-                                alert("Copied ID to clipboard: " + me);
-                            }
-                        }}
-                        className="w-72"
-                    >
-                        COPY ID
-                    </Button>
-                    <TextField
-                        id="filled-basic"
-                        label="ID to call"
-                        variant="filled"
-                        value={!isUserOneConnected ? idToCall : idToCall2}
-                        onChange={(e) => {
-                            if (!isUserOneConnected)
-                                setIdToCall(e.target.value);
-                            else setIdToCall2(e.target.value);
-                        }}
-                        className="w-72"
-                    />
-                    <div className="flex flex-row items-center space-x-4">
-                        <IconButton
-                            color="primary"
-                            aria-label="call"
-                            onClick={() =>
-                                callUser(
-                                    !isUserOneConnected ? idToCall : idToCall2
-                                )
-                            }
-                            className="w-12 h-12"
-                        >
-                            <Phone fontSize="large" />
-                        </IconButton>
-                        {callAccepted && !callEnded && (
-                            <Button
-                                variant="contained"
-                                color="secondary"
-                                onClick={() => {
-                                    leaveCall(me);
-                                }}
-                                className="w-36"
-                            >
-                                END CALL
-                            </Button>
-                        )}
-                    </div>
-                </div>
-                <div className="mt-8">
-                    {recievingCall && !callAccepted ? (
-                        <div className="flex flex-col items-center space-y-4">
-                            <h1 className="text-xl font-bold">
-                                {callerName} is calling...
-                            </h1>
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={() => {
-                                    answerCall(me);
-                                }}
-                                className="w-36"
-                            >
-                                ANSWER
-                            </Button>
-                        </div>
-                    ) : null}
-                </div>
-                <div className="mt-8">
-                    {recievingCall2 && !callAccepted ? (
-                        <div className="flex flex-col items-center space-y-4">
-                            <h1 className="text-xl font-bold">
-                                {callerName} is calling...
-                            </h1>
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={() => {
-                                    answerCall(me);
-                                }}
-                                className="w-36"
-                            >
-                                Answer
-                            </Button>
-                        </div>
-                    ) : null}
-                </div>
-            </div>
+
+                <button id="webcamButton">Start webcam</button>
+                <h2>2. Create a new Call</h2>
+                <button id="callButton" disabled>
+                    Create Call (offer)
+                </button>
+
+                <h2>3. Join a Call</h2>
+                <p>Answer the call from a different browser window or device</p>
+
+                <input id="callInput" />
+                <button id="answerButton" disabled>
+                    Answer
+                </button>
+
+                <h2>4. Hangup</h2>
+
+                <button id="hangupButton" disabled>
+                    Hangup
+                </button>
+
+                <script type="module" src="/main.js"></script>
+            </body>
         </>
     );
 }
