@@ -1,22 +1,26 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Peer from "simple-peer";
-import * as io from "socket.io-client";
-import { TextField, Button, IconButton } from "@mui/material";
-import { Phone, Assignment } from "@mui/icons-material";
-import User from "./user";
-import firebase from "firebase/app";
-import "firebase/firestore";
+// import Peer from "simple-peer";
+// import * as io from "socket.io-client";
+// import { TextField, Button, IconButton } from "@mui/material";
+// import { Phone, Assignment } from "@mui/icons-material";
+// import User from "./user";
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import firebaseConfig from "../../KEYS";
+import {
+    collection,
+    doc,
+    addDoc,
+    getDoc,
+    setDoc,
+    updateDoc,
+    onSnapshot,
+} from "firebase/firestore";
 
 export default function Home() {
-    const firebaseConfig = {
-        // your config
-    };
-
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    const firestore = firebase.firestore();
+    const app = initializeApp(firebaseConfig);
+    const firestore = getFirestore(app);
 
     const servers = {
         iceServers: [
@@ -32,21 +36,26 @@ export default function Home() {
 
     // Global State
     const pc = new RTCPeerConnection(servers);
-    let localStream = null;
-    let remoteStream = null;
+    let localStream: MediaStream;
+    let remoteStream: MediaStream;
+
+    let userVideo = useRef<HTMLVideoElement>(null);
+    let remoteVideo = useRef<HTMLVideoElement>(null);
+
+    const [hasTheWebcamButtonBeenClicked, setHasTheWebcamButtonBeenClicked] =
+        useState<boolean>(false);
+
+    const [hasTheCallButtonBeenClicked, setHasTheCallButtonBeenClicked] =
+        useState<boolean>(false);
+
+    callButtonOnClick;
 
     // HTML elements
-    const webcamButton = document.getElementById("webcamButton");
-    const webcamVideo = document.getElementById("webcamVideo");
-    const callButton = document.getElementById("callButton");
-    const callInput = document.getElementById("callInput");
-    const answerButton = document.getElementById("answerButton");
-    const remoteVideo = document.getElementById("remoteVideo");
-    const hangupButton = document.getElementById("hangupButton");
+    const callInputRef = useRef<HTMLInputElement>(null);
 
     // 1. Setup media sources
 
-    webcamButton.onclick = async () => {
+    async function webcamButtonOnClick() {
         localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true,
@@ -64,29 +73,33 @@ export default function Home() {
                 remoteStream.addTrack(track);
             });
         };
+        if (userVideo.current && remoteVideo.current) {
+            userVideo.current!.srcObject = localStream;
+            remoteVideo.current!.srcObject = remoteStream;
+        }
 
-        webcamVideo.srcObject = localStream;
-        remoteVideo.srcObject = remoteStream;
-
-        callButton.disabled = false;
-        answerButton.disabled = false;
-        webcamButton.disabled = true;
-    };
+        setHasTheWebcamButtonBeenClicked(true);
+    }
 
     // 2. Create an offer
-    callButton.onclick = async () => {
+    async function callButtonOnClick() {
         // Reference Firestore collections for signaling
-        const callDoc = firestore.collection("calls").doc();
-        const offerCandidates = callDoc.collection("offerCandidates");
-        const answerCandidates = callDoc.collection("answerCandidates");
+        const callDoc = doc(collection(firestore, "calls"));
+        const offerCandidates = collection(callDoc, "offerCandidates");
+        const answerCandidates = collection(callDoc, "answerCandidates");
 
-        callInput.value = callDoc.id;
+        if (callInputRef.current) {
+            callInputRef.current!.value = callDoc.id;
+        }
 
         // Get candidates for caller, save to db
         pc.onicecandidate = (event) => {
-            event.candidate && offerCandidates.add(event.candidate.toJSON());
+            event.candidate &&
+                addDoc(offerCandidates, event.candidate.toJSON());
         };
-
+        if (callInputRef.current) {
+            callInputRef.current.value = callDoc.id;
+        }
         // Create offer
         const offerDescription = await pc.createOffer();
         await pc.setLocalDescription(offerDescription);
@@ -96,10 +109,11 @@ export default function Home() {
             type: offerDescription.type,
         };
 
-        await callDoc.set({ offer });
+        await setDoc(callDoc, { offer });
 
         // Listen for remote answer
-        callDoc.onSnapshot((snapshot) => {
+
+        onSnapshot(callDoc, (snapshot) => {
             const data = snapshot.data();
             if (!pc.currentRemoteDescription && data?.answer) {
                 const answerDescription = new RTCSessionDescription(
@@ -110,7 +124,7 @@ export default function Home() {
         });
 
         // When answered, add candidate to peer connection
-        answerCandidates.onSnapshot((snapshot) => {
+        onSnapshot(answerCandidates, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added") {
                     const candidate = new RTCIceCandidate(change.doc.data());
@@ -119,22 +133,32 @@ export default function Home() {
             });
         });
 
-        hangupButton.disabled = false;
-    };
+        setHasTheCallButtonBeenClicked(true);
+    }
 
     // 3. Answer the call with the unique ID
-    answerButton.onclick = async () => {
-        const callId = callInput.value;
-        const callDoc = firestore.collection("calls").doc(callId);
-        const answerCandidates = callDoc.collection("answerCandidates");
-        const offerCandidates = callDoc.collection("offerCandidates");
+    async function answerButtonOnClick() {
+        let callId = null;
+        if (callInputRef.current) {
+            callId = callInputRef.current!.value;
+        }
+        if (!callId) {
+            throw new Error("callId is null or undefined");
+        }
+        const callDoc = doc(collection(firestore, "calls"), callId);
+        const answerCandidates = collection(callDoc, "answerCandidates");
+        const offerCandidates = collection(callDoc, "offerCandidates");
 
         pc.onicecandidate = (event) => {
-            event.candidate && answerCandidates.add(event.candidate.toJSON());
+            event.candidate &&
+                addDoc(answerCandidates, event.candidate.toJSON());
         };
 
-        const callData = (await callDoc.get()).data();
+        const callData = (await getDoc(callDoc)).data();
 
+        if (!callData) {
+            throw new Error("Call data is undefined");
+        }
         const offerDescription = callData.offer;
         await pc.setRemoteDescription(
             new RTCSessionDescription(offerDescription)
@@ -148,9 +172,9 @@ export default function Home() {
             sdp: answerDescription.sdp,
         };
 
-        await callDoc.update({ answer });
+        await updateDoc(callDoc, { answer });
 
-        offerCandidates.onSnapshot((snapshot) => {
+        onSnapshot(offerCandidates, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
                 console.log(change);
                 if (change.type === "added") {
@@ -159,7 +183,7 @@ export default function Home() {
                 }
             });
         });
-    };
+    }
 
     return (
         <>
@@ -168,31 +192,58 @@ export default function Home() {
                 <div className="videos">
                     <span>
                         <h3>Local Stream</h3>
-                        <video id="webcamVideo" autoPlay playsInline></video>
+                        <video
+                            id="webcamVideo"
+                            ref={userVideo}
+                            autoPlay
+                            playsInline
+                        ></video>
                     </span>
                     <span>
                         <h3>Remote Stream</h3>
-                        <video id="remoteVideo" autoPlay playsInline></video>
+                        <video
+                            id="remoteVideo"
+                            ref={remoteVideo}
+                            autoPlay
+                            playsInline
+                        ></video>
                     </span>
                 </div>
 
-                <button id="webcamButton">Start webcam</button>
+                <button
+                    id="webcamButton"
+                    onClick={webcamButtonOnClick}
+                    disabled={hasTheWebcamButtonBeenClicked}
+                >
+                    Start webcam
+                </button>
                 <h2>2. Create a new Call</h2>
-                <button id="callButton" disabled>
+                <button
+                    id="callButton"
+                    disabled={!hasTheWebcamButtonBeenClicked}
+                    onClick={callButtonOnClick}
+                >
                     Create Call (offer)
                 </button>
 
                 <h2>3. Join a Call</h2>
                 <p>Answer the call from a different browser window or device</p>
 
-                <input id="callInput" />
-                <button id="answerButton" disabled>
+                <input id="callInput" ref={callInputRef} />
+                <button
+                    id="answerButton"
+                    disabled={!hasTheWebcamButtonBeenClicked}
+                    onClick={answerButtonOnClick}
+                >
                     Answer
                 </button>
 
                 <h2>4. Hangup</h2>
 
-                <button id="hangupButton" disabled>
+                <button
+                    id="hangupButton"
+                    disabled={!hasTheCallButtonBeenClicked}
+                >
                     Hangup
                 </button>
 
