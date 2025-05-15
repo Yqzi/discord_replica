@@ -221,6 +221,7 @@ export default function Home() {
                 id="webcamButton"
                 onClick={webcamButtonOnClick}
                 disabled={hasTheWebcamButtonBeenClicked}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
             >
                 Start webcam
             </button>
@@ -229,6 +230,7 @@ export default function Home() {
                 id="callButton"
                 disabled={!hasTheWebcamButtonBeenClicked}
                 onClick={callButtonOnClick}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
             >
                 Create Call (offer)
             </button>
@@ -236,18 +238,32 @@ export default function Home() {
             <h2>3. Join a Call</h2>
             <p>Answer the call from a different browser window or device</p>
 
-            <input id="callInput" ref={callInputRef} />
+            <input
+                id="callInput"
+                ref={callInputRef}
+                style={{
+                    padding: "10px",
+                    border: "1px solid #ccc",
+                    borderRadius: "5px",
+                    margin: "10px 0",
+                }}
+            />
             <button
                 id="answerButton"
                 disabled={!hasTheWebcamButtonBeenClicked}
                 onClick={answerButtonOnClick}
+                className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
             >
                 Answer
             </button>
 
             <h2>4. Hangup</h2>
 
-            <button id="hangupButton" disabled={!hasTheCallButtonBeenClicked}>
+            <button
+                id="hangupButton"
+                disabled={!hasTheCallButtonBeenClicked}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+            >
                 Hangup
             </button>
         </>
