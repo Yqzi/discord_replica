@@ -22,20 +22,8 @@ export default function Home() {
     const app = initializeApp(firebaseConfig);
     const firestore = getFirestore(app);
 
-    const servers = {
-        iceServers: [
-            {
-                urls: [
-                    "stun:stun1.l.google.com:19302",
-                    "stun:stun2.l.google.com:19302",
-                ],
-            },
-        ],
-        iceCandidatePoolSize: 10,
-    };
-
     // Global State
-    const pc = new RTCPeerConnection(servers);
+    const [pc, setPc] = useState<RTCPeerConnection | null>(null);
     let localStream: MediaStream;
     let remoteStream: MediaStream;
 
@@ -50,12 +38,30 @@ export default function Home() {
 
     callButtonOnClick;
 
-    // HTML elements
     const callInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            // Initialize RTCPeerConnection only in the browser
+            const servers = {
+                iceServers: [
+                    {
+                        urls: [
+                            "stun:stun1.l.google.com:19302",
+                            "stun:stun2.l.google.com:19302",
+                        ],
+                    },
+                ],
+                iceCandidatePoolSize: 10,
+            };
+            setPc(new RTCPeerConnection(servers));
+        }
+    }, []);
 
     // 1. Setup media sources
 
     async function webcamButtonOnClick() {
+        if (!pc) return;
         localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true,
@@ -83,6 +89,7 @@ export default function Home() {
 
     // 2. Create an offer
     async function callButtonOnClick() {
+        if (!pc) return;
         // Reference Firestore collections for signaling
         const callDoc = doc(collection(firestore, "calls"));
         const offerCandidates = collection(callDoc, "offerCandidates");
@@ -138,6 +145,7 @@ export default function Home() {
 
     // 3. Answer the call with the unique ID
     async function answerButtonOnClick() {
+        if (!pc) return;
         let callId = null;
         if (callInputRef.current) {
             callId = callInputRef.current!.value;
@@ -187,68 +195,61 @@ export default function Home() {
 
     return (
         <>
-            <body>
-                <h2>1. Start your Webcam</h2>
-                <div className="videos">
-                    <span>
-                        <h3>Local Stream</h3>
-                        <video
-                            id="webcamVideo"
-                            ref={userVideo}
-                            autoPlay
-                            playsInline
-                        ></video>
-                    </span>
-                    <span>
-                        <h3>Remote Stream</h3>
-                        <video
-                            id="remoteVideo"
-                            ref={remoteVideo}
-                            autoPlay
-                            playsInline
-                        ></video>
-                    </span>
-                </div>
+            <h2>1. Start your Webcam</h2>
+            <div className="videos">
+                <span>
+                    <h3>Local Stream</h3>
+                    <video
+                        id="webcamVideo"
+                        ref={userVideo}
+                        autoPlay
+                        playsInline
+                    ></video>
+                </span>
+                <span>
+                    <h3>Remote Stream</h3>
+                    <video
+                        id="remoteVideo"
+                        ref={remoteVideo}
+                        autoPlay
+                        playsInline
+                    ></video>
+                </span>
+            </div>
 
-                <button
-                    id="webcamButton"
-                    onClick={webcamButtonOnClick}
-                    disabled={hasTheWebcamButtonBeenClicked}
-                >
-                    Start webcam
-                </button>
-                <h2>2. Create a new Call</h2>
-                <button
-                    id="callButton"
-                    disabled={!hasTheWebcamButtonBeenClicked}
-                    onClick={callButtonOnClick}
-                >
-                    Create Call (offer)
-                </button>
+            <button
+                id="webcamButton"
+                onClick={webcamButtonOnClick}
+                disabled={hasTheWebcamButtonBeenClicked}
+            >
+                Start webcam
+            </button>
+            <h2>2. Create a new Call</h2>
+            <button
+                id="callButton"
+                disabled={!hasTheWebcamButtonBeenClicked}
+                onClick={callButtonOnClick}
+            >
+                Create Call (offer)
+            </button>
 
-                <h2>3. Join a Call</h2>
-                <p>Answer the call from a different browser window or device</p>
+            <h2>3. Join a Call</h2>
+            <p>Answer the call from a different browser window or device</p>
 
-                <input id="callInput" ref={callInputRef} />
-                <button
-                    id="answerButton"
-                    disabled={!hasTheWebcamButtonBeenClicked}
-                    onClick={answerButtonOnClick}
-                >
-                    Answer
-                </button>
+            <input id="callInput" ref={callInputRef} />
+            <button
+                id="answerButton"
+                disabled={!hasTheWebcamButtonBeenClicked}
+                onClick={answerButtonOnClick}
+            >
+                Answer
+            </button>
 
-                <h2>4. Hangup</h2>
+            <h2>4. Hangup</h2>
 
-                <button
-                    id="hangupButton"
-                    disabled={!hasTheCallButtonBeenClicked}
-                >
-                    Hangup
-                </button>
-
-                <script type="module" src="/main.js"></script>
-            </body>
+            <button id="hangupButton" disabled={!hasTheCallButtonBeenClicked}>
+                Hangup
+            </button>
         </>
     );
 }
