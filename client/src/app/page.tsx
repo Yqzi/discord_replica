@@ -1,271 +1,328 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-// import Peer from "simple-peer";
-// import * as io from "socket.io-client";
-// import { TextField, Button, IconButton } from "@mui/material";
-// import { Phone, Assignment } from "@mui/icons-material";
-// import User from "./user";
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import firebaseConfig from "../../KEYS";
 import {
     collection,
     doc,
-    addDoc,
-    getDoc,
     setDoc,
-    updateDoc,
+    addDoc,
     onSnapshot,
+    getDoc,
+    updateDoc,
+    deleteDoc,
 } from "firebase/firestore";
 
 export default function Home() {
     const app = initializeApp(firebaseConfig);
     const firestore = getFirestore(app);
 
-    // Global State
-    const [pc, setPc] = useState<RTCPeerConnection | null>(null);
-    let localStream: MediaStream;
-    let remoteStream: MediaStream;
+    const [roomId, setRoomId] = useState("");
+    const [clientId, setClientId] = useState("");
+    const [pcs, setPcs] = useState<{ [id: string]: RTCPeerConnection }>({});
+    const [remoteStreams, setRemoteStreams] = useState<{
+        [id: string]: MediaStream;
+    }>({});
+    const [hasJoined, setHasJoined] = useState(false);
 
-    let userVideo = useRef<HTMLVideoElement>(null);
-    let remoteVideo = useRef<HTMLVideoElement>(null);
-
-    const [hasTheWebcamButtonBeenClicked, setHasTheWebcamButtonBeenClicked] =
-        useState<boolean>(false);
-
-    const [hasTheCallButtonBeenClicked, setHasTheCallButtonBeenClicked] =
-        useState<boolean>(false);
-
-    callButtonOnClick;
-
-    const callInputRef = useRef<HTMLInputElement>(null);
+    const userVideo = useRef<HTMLVideoElement>(null);
+    const localStreamRef = useRef<MediaStream | null>(null);
+    const candidateQueues = useRef<{ [id: string]: RTCIceCandidateInit[] }>({});
 
     useEffect(() => {
-        if (typeof window !== "undefined") {
-            // Initialize RTCPeerConnection only in the browser
-            const servers = {
-                iceServers: [
-                    {
-                        urls: [
-                            "stun:stun1.l.google.com:19302",
-                            "stun:stun2.l.google.com:19302",
-                        ],
-                    },
-                ],
-                iceCandidatePoolSize: 10,
-            };
-            setPc(new RTCPeerConnection(servers));
+        if (!roomId || !clientId) return;
+        const unsub = onSnapshot(
+            collection(firestore, "rooms", roomId, "clients"),
+            (snapshot) => {
+                snapshot.docs.forEach(async (docSnap) => {
+                    const otherId = docSnap.id;
+                    if (otherId === clientId) return;
+                    if (!pcs[otherId]) {
+                        await setupConnection(otherId, clientId);
+                    }
+                });
+            }
+        );
+        return () => unsub();
+    }, [roomId, clientId, pcs]);
+
+    // 1. Join a room
+    async function joinRoom() {
+        if (!roomId) return;
+        const myId = crypto.randomUUID();
+        setClientId(myId);
+
+        // Add self to room
+        await setDoc(doc(firestore, "rooms", roomId, "clients", myId), {
+            joined: Date.now(),
+        });
+
+        // Listen for other clients
+
+        setHasJoined(true);
+    }
+
+    // 2. Setup peer connection and signaling for each other client
+    async function setupConnection(otherId: string, myId: string) {
+        const servers = {
+            iceServers: [
+                {
+                    urls: [
+                        "stun:stun1.l.google.com:19302",
+                        "stun:stun2.l.google.com:19302",
+                    ],
+                },
+            ],
+            iceCandidatePoolSize: 10,
+        };
+        const pc = new RTCPeerConnection(servers);
+
+        // Add local tracks
+        if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach((track) => {
+                pc.addTrack(track, localStreamRef.current!);
+            });
         }
-    }, []);
 
-    // 1. Setup media sources
+        // Handle remote tracks
+        pc.ontrack = (event) => {
+            const newRemoteStream = new window.MediaStream();
+            event.streams[0].getTracks().forEach((track) => {
+                newRemoteStream.addTrack(track);
+            });
+            setRemoteStreams((prev) => ({
+                ...prev,
+                [otherId]: newRemoteStream,
+            }));
+        };
 
+        // ICE candidates
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                addDoc(
+                    collection(
+                        firestore,
+                        "rooms",
+                        roomId,
+                        "signals",
+                        `${myId}_to_${otherId}`,
+                        "candidates"
+                    ),
+                    event.candidate.toJSON()
+                );
+            }
+        };
+
+        // In setupConnection, after creating pc:
+        candidateQueues.current[otherId] = [];
+
+        // Replace your onSnapshot for ICE candidates with:
+        onSnapshot(
+            collection(
+                firestore,
+                "rooms",
+                roomId,
+                "signals",
+                `${otherId}_to_${myId}`,
+                "candidates"
+            ),
+            (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        const data = change.doc.data();
+                        const candidate = new RTCIceCandidate(data);
+                        if (pc.remoteDescription && pc.remoteDescription.type) {
+                            pc.addIceCandidate(candidate);
+                        } else {
+                            // Buffer until remote description is set
+                            candidateQueues.current[otherId].push(candidate);
+                        }
+                    }
+                });
+            }
+        );
+
+        // After every setRemoteDescription (both offer and answer), flush the queue:
+        async function flushCandidateQueue(
+            pc: RTCPeerConnection,
+            otherId: string
+        ) {
+            const queue = candidateQueues.current[otherId] || [];
+            for (const candidate of queue) {
+                await pc.addIceCandidate(candidate);
+            }
+            candidateQueues.current[otherId] = [];
+        }
+
+        // After every await pc.setRemoteDescription(...), call:
+        await flushCandidateQueue(pc, otherId);
+
+        // Offer/Answer logic
+        // Only the client with the "greater" id creates the offer (to avoid double-offer)
+        if (myId > otherId) {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await setDoc(
+                doc(
+                    firestore,
+                    "rooms",
+                    roomId,
+                    "signals",
+                    `${myId}_to_${otherId}`
+                ),
+                {
+                    offer: {
+                        type: offer.type,
+                        sdp: offer.sdp,
+                    },
+                }
+            );
+
+            // Listen for answer
+            onSnapshot(
+                doc(
+                    firestore,
+                    "rooms",
+                    roomId,
+                    "signals",
+                    `${otherId}_to_${myId}`
+                ),
+                (docSnap) => {
+                    const data = docSnap.data();
+                    if (data?.answer && !pc.currentRemoteDescription) {
+                        pc.setRemoteDescription(
+                            new RTCSessionDescription(data.answer)
+                        );
+                    }
+                }
+            );
+        } else {
+            // Listen for offer, then answer
+            onSnapshot(
+                doc(
+                    firestore,
+                    "rooms",
+                    roomId,
+                    "signals",
+                    `${otherId}_to_${myId}`
+                ),
+                async (docSnap) => {
+                    const data = docSnap.data();
+                    if (data?.offer && !pc.currentRemoteDescription) {
+                        await pc.setRemoteDescription(
+                            new RTCSessionDescription(data.offer)
+                        );
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        await setDoc(
+                            doc(
+                                firestore,
+                                "rooms",
+                                roomId,
+                                "signals",
+                                `${myId}_to_${otherId}`
+                            ),
+                            {
+                                answer: {
+                                    type: answer.type,
+                                    sdp: answer.sdp,
+                                },
+                            }
+                        );
+                    }
+                }
+            );
+        }
+
+        setPcs((prev) => ({ ...prev, [otherId]: pc }));
+    }
+
+    // 3. Start webcam and store local stream
     async function webcamButtonOnClick() {
-        if (!pc) return;
-        localStream = await navigator.mediaDevices.getUserMedia({
+        const localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true,
         });
-        remoteStream = new MediaStream();
-
-        // Push tracks from local stream to peer connection
-        localStream.getTracks().forEach((track) => {
-            pc.addTrack(track, localStream);
-        });
-
-        // Pull tracks from remote stream, add to video stream
-        pc.ontrack = (event) => {
-            event.streams[0].getTracks().forEach((track) => {
-                remoteStream.addTrack(track);
-            });
-        };
-        if (userVideo.current && remoteVideo.current) {
-            userVideo.current!.srcObject = localStream;
-            remoteVideo.current!.srcObject = remoteStream;
+        localStreamRef.current = localStream;
+        if (userVideo.current) {
+            userVideo.current.srcObject = localStream;
         }
-
-        setHasTheWebcamButtonBeenClicked(true);
     }
 
-    // 2. Create an offer
-    async function callButtonOnClick() {
-        if (!pc) return;
-        // Reference Firestore collections for signaling
-        const callDoc = doc(collection(firestore, "calls"));
-        const offerCandidates = collection(callDoc, "offerCandidates");
-        const answerCandidates = collection(callDoc, "answerCandidates");
-
-        if (callInputRef.current) {
-            callInputRef.current!.value = callDoc.id;
-        }
-
-        // Get candidates for caller, save to db
-        pc.onicecandidate = (event) => {
-            event.candidate &&
-                addDoc(offerCandidates, event.candidate.toJSON());
-        };
-        if (callInputRef.current) {
-            callInputRef.current.value = callDoc.id;
-        }
-        // Create offer
-        const offerDescription = await pc.createOffer();
-        await pc.setLocalDescription(offerDescription);
-
-        const offer = {
-            sdp: offerDescription.sdp,
-            type: offerDescription.type,
-        };
-
-        await setDoc(callDoc, { offer });
-
-        // Listen for remote answer
-
-        onSnapshot(callDoc, (snapshot) => {
-            const data = snapshot.data();
-            if (!pc.currentRemoteDescription && data?.answer) {
-                const answerDescription = new RTCSessionDescription(
-                    data.answer
-                );
-                pc.setRemoteDescription(answerDescription);
-            }
-        });
-
-        // When answered, add candidate to peer connection
-        onSnapshot(answerCandidates, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === "added") {
-                    const candidate = new RTCIceCandidate(change.doc.data());
-                    pc.addIceCandidate(candidate);
-                }
-            });
-        });
-
-        setHasTheCallButtonBeenClicked(true);
+    // 4. Cleanup on leave (optional)
+    async function leaveRoom() {
+        if (!roomId || !clientId) return;
+        await deleteDoc(doc(firestore, "rooms", roomId, "clients", clientId));
+        Object.values(pcs).forEach((pc) => pc.close());
+        setPcs({});
+        setRemoteStreams({});
+        setHasJoined(false);
     }
 
-    // 3. Answer the call with the unique ID
-    async function answerButtonOnClick() {
-        if (!pc) return;
-        let callId = null;
-        if (callInputRef.current) {
-            callId = callInputRef.current!.value;
-        }
-        if (!callId) {
-            throw new Error("callId is null or undefined");
-        }
-        const callDoc = doc(collection(firestore, "calls"), callId);
-        const answerCandidates = collection(callDoc, "answerCandidates");
-        const offerCandidates = collection(callDoc, "offerCandidates");
-
-        pc.onicecandidate = (event) => {
-            event.candidate &&
-                addDoc(answerCandidates, event.candidate.toJSON());
-        };
-
-        const callData = (await getDoc(callDoc)).data();
-
-        if (!callData) {
-            throw new Error("Call data is undefined");
-        }
-        const offerDescription = callData.offer;
-        await pc.setRemoteDescription(
-            new RTCSessionDescription(offerDescription)
-        );
-
-        const answerDescription = await pc.createAnswer();
-        await pc.setLocalDescription(answerDescription);
-
-        const answer = {
-            type: answerDescription.type,
-            sdp: answerDescription.sdp,
-        };
-
-        await updateDoc(callDoc, { answer });
-
-        onSnapshot(offerCandidates, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                console.log(change);
-                if (change.type === "added") {
-                    let data = change.doc.data();
-                    pc.addIceCandidate(new RTCIceCandidate(data));
-                }
-            });
-        });
-    }
-
+    // UI
     return (
         <>
-            <h2>1. Start your Webcam</h2>
-            <div className="videos">
-                <span>
-                    <h3>Local Stream</h3>
-                    <video
-                        id="webcamVideo"
-                        ref={userVideo}
-                        autoPlay
-                        playsInline
-                    ></video>
-                </span>
-                <span>
-                    <h3>Remote Stream</h3>
-                    <video
-                        id="remoteVideo"
-                        ref={remoteVideo}
-                        autoPlay
-                        playsInline
-                    ></video>
-                </span>
+            <h2>Room-based Group Call (2 or 3 people)</h2>
+            <div>
+                <input
+                    type="text"
+                    placeholder="Room name"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    style={{ padding: "10px", margin: "10px 0" }}
+                    disabled={hasJoined}
+                />
+                <button
+                    onClick={joinRoom}
+                    disabled={hasJoined || !roomId}
+                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                >
+                    Join Room
+                </button>
+                <button
+                    onClick={leaveRoom}
+                    disabled={!hasJoined}
+                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 ml-2"
+                >
+                    Leave Room
+                </button>
             </div>
-
             <button
                 id="webcamButton"
                 onClick={webcamButtonOnClick}
-                disabled={hasTheWebcamButtonBeenClicked}
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
             >
                 Start webcam
             </button>
-            <h2>2. Create a new Call</h2>
-            <button
-                id="callButton"
-                disabled={!hasTheWebcamButtonBeenClicked}
-                onClick={callButtonOnClick}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-            >
-                Create Call (offer)
-            </button>
-
-            <h2>3. Join a Call</h2>
-            <p>Answer the call from a different browser window or device</p>
-
-            <input
-                id="callInput"
-                ref={callInputRef}
-                style={{
-                    padding: "10px",
-                    border: "1px solid #ccc",
-                    borderRadius: "5px",
-                    margin: "10px 0",
-                }}
-            />
-            <button
-                id="answerButton"
-                disabled={!hasTheWebcamButtonBeenClicked}
-                onClick={answerButtonOnClick}
-                className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
-            >
-                Answer
-            </button>
-
-            <h2>4. Hangup</h2>
-
-            <button
-                id="hangupButton"
-                disabled={!hasTheCallButtonBeenClicked}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
-            >
-                Hangup
-            </button>
+            <div className="videos">
+                <span>
+                    <h3>Local Stream</h3>
+                    <video
+                        ref={userVideo}
+                        autoPlay
+                        playsInline
+                        muted
+                        style={{ width: 200, margin: 8 }}
+                    />
+                </span>
+                <span>
+                    <h3>Remote Streams</h3>
+                    {Object.entries(remoteStreams).map(([id, stream]) =>
+                        stream ? (
+                            <video
+                                key={id}
+                                autoPlay
+                                playsInline
+                                ref={(el) => {
+                                    if (el && stream) el.srcObject = stream;
+                                }}
+                                style={{ width: 200, margin: 8 }}
+                            />
+                        ) : null
+                    )}
+                </span>
+            </div>
         </>
     );
 }
