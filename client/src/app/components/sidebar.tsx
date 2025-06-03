@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { FaSearch, FaUser, FaCog, FaCalendarDay } from "react-icons/fa";
+import { FaSearch, FaUser, FaCog, FaPlus } from "react-icons/fa";
 import { IoIosArrowDown, IoMdVolumeHigh } from "react-icons/io";
+import { MdPersonAddAlt1 } from "react-icons/md";
 
 const buttons = [
     { icon: <FaSearch />, label: "Search" },
@@ -48,10 +49,12 @@ export default function Sidebar() {
                 </span>
                 <div className="bg-[#1a1a1a] w-[280px] h-[1px]"></div>
                 <div className="flex flex-row w-full items-center text-base font-light text-gray-500 gap-2 group cursor-pointer hover:bg-[#1a1919] rounded transition-colors pl-2 py-0.5">
-                    <FaCalendarDay />
+                    <MdPersonAddAlt1 />
                     <span className="text-base font-light text-gray-500 transition-colors group-hover:text-white">
-                        Events
+                        Invite
                     </span>
+                    <div className="flex-1" />
+                    <FaPlus className="text-lg pr-2 invisible group-hover:visible" />
                 </div>
                 <div className="bg-[#1a1a1a] w-[280px] h-[1px]"></div>
                 <div className="flex flex-col items-start space-y-1  w-full">
