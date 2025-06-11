@@ -25,4 +25,45 @@ video {
 body {
     @apply m-0 p-0;
     background-color: #1e1e1e;
+    color: white;
+}
+
+@keyframes tilt {
+    0% {
+        transform: rotate(0deg);
+    }
+    20% {
+        transform: rotate(8deg);
+    }
+    40% {
+        transform: rotate(8deg); /* Pause on right */
+    }
+    60% {
+        transform: rotate(-8deg);
+    }
+    80% {
+        transform: rotate(-8deg); /* Pause on left */
+    }
+    100% {
+        transform: rotate(0deg);
+    }
+}
+
+.tilt-on-hover:hover,
+.group:hover .tilt-on-hover {
+    animation: tilt 1s ease-in-out;
+}
+
+@keyframes spin-right {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(180deg);
+    }
+}
+
+.spin-on-hover:hover,
+.group:hover .spin-on-hover {
+    animation: spin-right 0.8s ease-in-out;
 }
