@@ -1,14 +1,13 @@
 "use client";
 import Sidebar from "./sidebar";
+import TextChannel from "./text_channel";
 import UserCount from "./user_count";
 
 export default function Temp() {
     return (
-        <div className="flex flex-row w-full">
+        <div className="flex flex-row w-full h-screen">
             <Sidebar />
-            <div className="flex-1">
-                <div className="bg-[#222225] w-full mt-[60px] h-[1px]" />
-            </div>
+            <TextChannel />
             <UserCount />
         </div>
     );
