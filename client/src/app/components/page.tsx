@@ -1,9 +1,12 @@
 "use client";
+import { useState } from "react";
 import Sidebar from "./sidebar";
 import TextChannel from "./text_channel";
 import UserCount from "./user_count";
+import VoiceChannel from "./voice_channel";
 
 export default function Temp() {
+    const [selectedChannel, setSelectedChannel] = useState(0);
     return (
         <div className="flex flex-col w-full h-screen">
             <div className="min-h-7 max-h-7 flex bg-[#121214] text-xs justify-center items-center flex-row">
@@ -15,9 +18,13 @@ export default function Temp() {
                 SERVER NAME
             </div>
             <div className="flex flex-row flex-1 h-[calc(100vh-1.75rem)] ">
-                <Sidebar />
-                <TextChannel />
-                <UserCount />
+                <Sidebar
+                    selectedChannel={selectedChannel}
+                    setSelectedChannel={setSelectedChannel}
+                />
+                {selectedChannel === 0 ? <TextChannel /> : null}
+                {selectedChannel === 0 ? <UserCount /> : null}
+                {selectedChannel === 1 ? <VoiceChannel /> : null}
             </div>
         </div>
     );

@@ -13,7 +13,15 @@ const buttons = [
     { icon: <FaCog />, label: "Settings" },
 ];
 
-export default function Sidebar() {
+type SidebarProps = {
+    selectedChannel: number;
+    setSelectedChannel: (index: number) => void;
+};
+
+export default function Sidebar({
+    selectedChannel,
+    setSelectedChannel,
+}: SidebarProps) {
     const [activeIndex, setActiveIndex] = useState(0);
 
     return (
@@ -83,23 +91,23 @@ export default function Sidebar() {
                             <div
                                 className={`flex flex-row gap-2 w-full items-center group cursor-pointer rounded-lg transition-colors pl-2 py-1
                                 ${
-                                    activeIndex === 3 || activeIndex === 0
+                                    selectedChannel === 0
                                         ? "bg-[#252529] text-white"
                                         : "hover:bg-[#252529a6] hover:text-white"
                                 }
                             `}
-                                onClick={() => setActiveIndex(3)}
+                                onClick={() => setSelectedChannel(0)}
                             >
                                 <HiOutlineHashtag
                                     className={`text-xl ${
-                                        activeIndex === 3 || activeIndex === 0
+                                        selectedChannel === 0
                                             ? "text-white"
                                             : "text-gray-500"
                                     } group-hover:text-white`}
                                 />
                                 <span
                                     className={`text-base font-light ${
-                                        activeIndex === 3 || activeIndex === 0
+                                        selectedChannel === 0
                                             ? "text-white"
                                             : "text-gray-500 group-hover:text-white"
                                     }`}
@@ -118,23 +126,23 @@ export default function Sidebar() {
                             <div
                                 className={`flex flex-row gap-2 w-full items-center group cursor-pointer rounded-lg transition-colors pl-2 py-1
                                 ${
-                                    activeIndex === 4
+                                    selectedChannel === 1
                                         ? "bg-[#252529] text-white"
                                         : "hover:bg-[#252529a6] hover:text-white"
                                 }
                             `}
-                                onClick={() => setActiveIndex(4)}
+                                onClick={() => setSelectedChannel(1)}
                             >
                                 <IoMdVolumeHigh
                                     className={`text-xl ${
-                                        activeIndex === 4
+                                        selectedChannel === 1
                                             ? "text-white"
                                             : "text-gray-500"
                                     } group-hover:text-white`}
                                 />
                                 <span
                                     className={`text-base font-light ${
-                                        activeIndex === 4
+                                        selectedChannel === 1
                                             ? "text-white"
                                             : "text-gray-500 group-hover:text-white"
                                     }`}
