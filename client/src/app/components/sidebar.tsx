@@ -17,118 +17,131 @@ export default function Sidebar() {
     const [activeIndex, setActiveIndex] = useState(0);
 
     return (
-        <div className="flex flex-col w-[351px] h-screen bg-[#121214]">
+        <div className="flex flex-col bg-[#121214]">
             <div className="flex flex-row h-full">
                 <div className="flex flex-col w-[70px] h-full bg-[#121214]">
                     {buttons.map((btn, idx) => (
-                        <div
-                            key={btn.label}
-                            className="flex items-center h-[70px] cursor-pointer"
-                            onClick={() => setActiveIndex(idx)}
-                        >
-                            {/* Indicator */}
+                        <div>
                             <div
-                                className={`h-10 w-1 rounded-r-full transition-all ${
-                                    activeIndex === idx
-                                        ? "bg-white"
-                                        : "bg-transparent"
-                                }`}
-                            />
-                            <button
-                                className={`w-10 h-10 ml-2 rounded-full flex items-center justify-center transition-colors ${
-                                    activeIndex === idx
-                                        ? "bg-blue-600 text-white"
-                                        : "bg-gray-800 text-gray-400 hover:bg-blue-700 hover:text-white"
-                                }`}
+                                key={btn.label}
+                                className="flex flex-row items-center my-1"
                             >
-                                {btn.icon}
-                            </button>
+                                {/* Indicator */}
+                                <div
+                                    className={`h-10 w-1 rounded-r-full transition-all ${
+                                        activeIndex === idx
+                                            ? "bg-white"
+                                            : "bg-transparent"
+                                    }`}
+                                />
+                                <button
+                                    className={`w-10 h-10 ml-2 rounded-xl flex items-center justify-center transition-colors ${
+                                        activeIndex === idx
+                                            ? "bg-blue-600 text-white"
+                                            : "bg-gray-800 text-gray-400 hover:bg-blue-700 hover:text-white"
+                                    }`}
+                                    onClick={() => setActiveIndex(idx)}
+                                >
+                                    {btn.icon}
+                                </button>
+                            </div>
+                            {idx === 0 && (
+                                <div className="w-8 ml-4 mt-2 mb-1 h-[1px] bg-[#222225] justify-center"></div>
+                            )}
                         </div>
                     ))}
                 </div>
                 <div className="bg-[#222225] w-[1px] h-full"></div>
-                <div className="bg-[#121214] w-[280px] h-full pt-4 flex flex-col space-y-4 items-start px-1.5">
-                    <span className="text-lg font-semibold text-white pl-2">
+                <div
+                    className="flex flex-col space-y-[15.5px] items-start w-72 min-w-[200px] max-w-[400px] relative resize-x overflow-auto"
+                    style={{
+                        resize: "horizontal",
+                    }}
+                >
+                    <div className="bg-[#222225] w-full h-[1px]"></div>
+                    <span className="text-lg font-semibold text-white pl-3.5 ">
                         SERVER NAME
                     </span>
-                    <div className="bg-[#1a1a1a] w-[274px] h-[1px] px-0"></div>
-                    <div className="flex flex-row w-full items-center text-base font-light text-gray-500 gap-2 group cursor-pointer hover:bg-[#252529a6] rounded-lg transition-colors pl-2 py-1">
-                        <MdPersonAddAlt1 />
-                        <span className="text-base font-light text-gray-500 transition-colors group-hover:text-white">
-                            Invite
-                        </span>
-                        <div className="flex-1" />
-                        <FaPlus className="text-lg pr-2 invisible group-hover:visible" />
-                    </div>
-                    <div className="bg-[#1a1a1a] w-[268px] h-[1px]"></div>
-                    <div className="flex flex-col items-start space-y-1 w-full">
-                        <div className="flex flex-row gap-2 items-center group cursor-pointer transition-colors pl-2 py-0.5">
-                            <span className="text-xs font-light text-gray-500 group-hover:text-white">
-                                Text Channels
+                    <div className="bg-[#29292d] w-full h-[1px] px-0"></div>
+                    <div className="bg-[#121214] h-full flex flex-col space-y-4 items-start px-1.5 w-full">
+                        <div className="flex flex-row w-full items-center text-base font-light text-gray-500 gap-2 group cursor-pointer hover:bg-[#252529a6] rounded-lg transition-colors pl-2 py-1">
+                            <MdPersonAddAlt1 />
+                            <span className="text-base font-light text-gray-500 transition-colors group-hover:text-white">
+                                Invite
                             </span>
-                            <IoIosArrowDown className="text-gray-500 text-xs group-hover:text-white" />
+                            <div className="flex-1" />
+                            <FaPlus className="text-lg pr-2 invisible group-hover:visible" />
                         </div>
-                        <div
-                            className={`flex flex-row gap-2 w-full items-center group cursor-pointer rounded-lg transition-colors pl-2 py-1
+                        <div className="bg-[#29292d] w-full h-[1px]"></div>
+                        <div className="flex flex-col items-start space-y-1 w-full">
+                            <div className="flex flex-row gap-2 items-center group cursor-pointer transition-colors pl-2 py-0.5">
+                                <span className="text-xs font-light text-gray-500 group-hover:text-white">
+                                    Text Channels
+                                </span>
+                                <IoIosArrowDown className="text-gray-500 text-xs group-hover:text-white" />
+                            </div>
+                            <div
+                                className={`flex flex-row gap-2 w-full items-center group cursor-pointer rounded-lg transition-colors pl-2 py-1
                                 ${
                                     activeIndex === 3 || activeIndex === 0
                                         ? "bg-[#252529] text-white"
                                         : "hover:bg-[#252529a6] hover:text-white"
                                 }
                             `}
-                            onClick={() => setActiveIndex(3)}
-                        >
-                            <HiOutlineHashtag
-                                className={`text-xl ${
-                                    activeIndex === 3 || activeIndex === 0
-                                        ? "text-white"
-                                        : "text-gray-500"
-                                } group-hover:text-white`}
-                            />
-                            <span
-                                className={`text-base font-light ${
-                                    activeIndex === 3 || activeIndex === 0
-                                        ? "text-white"
-                                        : "text-gray-500 group-hover:text-white"
-                                }`}
+                                onClick={() => setActiveIndex(3)}
                             >
-                                general
-                            </span>
+                                <HiOutlineHashtag
+                                    className={`text-xl ${
+                                        activeIndex === 3 || activeIndex === 0
+                                            ? "text-white"
+                                            : "text-gray-500"
+                                    } group-hover:text-white`}
+                                />
+                                <span
+                                    className={`text-base font-light ${
+                                        activeIndex === 3 || activeIndex === 0
+                                            ? "text-white"
+                                            : "text-gray-500 group-hover:text-white"
+                                    }`}
+                                >
+                                    general
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex flex-col items-start space-y-1 w-full">
-                        <div className="flex flex-row gap-2 items-center group cursor-pointer transition-colors pl-2 py-0.5">
-                            <span className="text-xs font-light text-gray-500 group-hover:text-white">
-                                Voice Channels
-                            </span>
-                            <IoIosArrowDown className="text-gray-500 text-xs group-hover:text-white" />
-                        </div>
-                        <div
-                            className={`flex flex-row gap-2 w-full items-center group cursor-pointer rounded-lg transition-colors pl-2 py-1
+                        <div className="flex flex-col items-start space-y-1 w-full">
+                            <div className="flex flex-row gap-2 items-center group cursor-pointer transition-colors pl-2 py-0.5">
+                                <span className="text-xs font-light text-gray-500 group-hover:text-white">
+                                    Voice Channels
+                                </span>
+                                <IoIosArrowDown className="text-gray-500 text-xs group-hover:text-white" />
+                            </div>
+                            <div
+                                className={`flex flex-row gap-2 w-full items-center group cursor-pointer rounded-lg transition-colors pl-2 py-1
                                 ${
                                     activeIndex === 4
                                         ? "bg-[#252529] text-white"
                                         : "hover:bg-[#252529a6] hover:text-white"
                                 }
                             `}
-                            onClick={() => setActiveIndex(4)}
-                        >
-                            <IoMdVolumeHigh
-                                className={`text-xl ${
-                                    activeIndex === 4
-                                        ? "text-white"
-                                        : "text-gray-500"
-                                } group-hover:text-white`}
-                            />
-                            <span
-                                className={`text-base font-light ${
-                                    activeIndex === 4
-                                        ? "text-white"
-                                        : "text-gray-500 group-hover:text-white"
-                                }`}
+                                onClick={() => setActiveIndex(4)}
                             >
-                                General
-                            </span>
+                                <IoMdVolumeHigh
+                                    className={`text-xl ${
+                                        activeIndex === 4
+                                            ? "text-white"
+                                            : "text-gray-500"
+                                    } group-hover:text-white`}
+                                />
+                                <span
+                                    className={`text-base font-light ${
+                                        activeIndex === 4
+                                            ? "text-white"
+                                            : "text-gray-500 group-hover:text-white"
+                                    }`}
+                                >
+                                    General
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
