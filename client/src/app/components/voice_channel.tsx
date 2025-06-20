@@ -12,7 +12,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 }
 
 export default function VoiceChannel() {
-    let x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]; // Try with different lengths
+    let x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; // Try with different lengths
     const chunkSize = getChunkSize(x.length);
     const chunked = chunkArray(x, chunkSize);
 
