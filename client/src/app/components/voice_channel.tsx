@@ -19,6 +19,7 @@ import {
     updateDoc,
     deleteDoc,
 } from "firebase/firestore";
+import { useAuth } from "../auth_provider";
 
 function getChunkSize(length: number) {
     // Try to fit all items in 3 rows, but never exceed 5 per row
@@ -49,6 +50,8 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
     const localStreamRef = useRef<MediaStream | null>(null);
     const candidateQueues = useRef<{ [id: string]: RTCIceCandidateInit[] }>({});
 
+    const user = useAuth();
+
     useEffect(() => {
         if (!roomId || !clientId) return;
         const unsub = onSnapshot(
@@ -73,11 +76,26 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
             setRoomId("1212");
         }
 
-        const myId = crypto.randomUUID();
+        const myId = user.user?.uid ?? "";
         setClientId(myId);
 
         // Add self to room
-        await setDoc(doc(firestore, "rooms", "1212", "clients", myId), {
+        await setDoc(doc(firestore, "rooms", roomId, "clients", myId), {
+            joined: Date.now(),
+        });
+
+        // Listen for other clients
+
+        setHasJoined(true);
+    }
+
+    async function joinRoomd() {
+        if (!roomId) return;
+        const myId = user.user!.uid;
+        setClientId(myId);
+
+        // Add self to room
+        await setDoc(doc(firestore, "rooms", roomId, "clients", myId), {
             joined: Date.now(),
         });
 
@@ -320,31 +338,59 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
     const chunked = chunkArray(videoItems, chunkSize);
 
     return (
-        <div className="videos">
-            <span>
-                <video ref={userVideo} autoPlay playsInline muted />
-            </span>
-            <span>
-                {Object.entries(remoteStreams).map(([id, stream]) =>
-                    stream ? (
-                        <video
-                            key={id}
-                            autoPlay
-                            playsInline
-                            ref={(el) => {
-                                if (el && stream) el.srcObject = stream;
-                            }}
-                        />
-                    ) : null
-                )}
-            </span>
+        <>
+            <h2>Room-based Group Call (2 or 3 people)</h2>
+            <div>
+                <input
+                    type="text"
+                    placeholder="Room name"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    style={{ padding: "10px", margin: "10px 0" }}
+                    disabled={hasJoined}
+                />
+                <button
+                    onClick={joinRoomd}
+                    disabled={hasJoined || !roomId}
+                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                >
+                    Join Room
+                </button>
+                <button
+                    onClick={leaveRoom}
+                    disabled={!hasJoined}
+                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 ml-2"
+                >
+                    Leave Room
+                </button>
+            </div>
             <button
-                className="absolute bottom-0 bg-green-600 text-white rounded hover:bg-green-700 transition"
+                id="webcamButton"
                 onClick={webcamButtonOnClick}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
             >
-                Start Stream
+                Start webcam
             </button>
-        </div>
+            <div className="videos">
+                <span>
+                    <video ref={userVideo} autoPlay playsInline muted />
+                </span>
+                <span>
+                    {Object.entries(remoteStreams).map(([id, stream]) =>
+                        stream ? (
+                            <video
+                                key={id}
+                                autoPlay
+                                playsInline
+                                ref={(el) => {
+                                    if (el && stream) el.srcObject = stream;
+                                }}
+                            />
+                        ) : null
+                    )}
+                </span>
+            </div>
+        </>
     );
 });
 

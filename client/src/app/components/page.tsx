@@ -4,6 +4,7 @@ import Sidebar from "./sidebar";
 import TextChannel from "./text_channel";
 import UserCount from "./user_count";
 import VoiceChannel from "./voice_channel";
+import { useAuth } from "../auth_provider";
 
 export default function Temp() {
     const [selectedChannel, setSelectedChannel] = useState(0);
