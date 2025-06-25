@@ -7,7 +7,7 @@ import {
     useState,
 } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getDocs, getFirestore } from "firebase/firestore";
 import firebaseConfig from "../../../KEYS";
 import {
     collection,
@@ -50,6 +50,8 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
     const localStreamRef = useRef<MediaStream | null>(null);
     const candidateQueues = useRef<{ [id: string]: RTCIceCandidateInit[] }>({});
 
+    const unsubRef = useRef<(() => void) | null>(null);
+
     const user = useAuth();
 
     useEffect(() => {
@@ -66,6 +68,7 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
                 });
             }
         );
+        unsubRef.current = unsub;
         return () => unsub();
     }, [roomId, clientId, pcs]);
 
@@ -98,6 +101,11 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
         await setDoc(doc(firestore, "rooms", roomId, "clients", myId), {
             joined: Date.now(),
         });
+
+        console.log("JOINED");
+        console.log(roomId);
+        console.log(clientId);
+        console.log("JOINED");
 
         // Listen for other clients
 
@@ -298,7 +306,36 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
     // 4. Cleanup on leave (optional)
     async function leaveRoom() {
         if (!roomId || !clientId) return;
+        if (unsubRef.current) {
+            unsubRef.current();
+            unsubRef.current = null;
+        }
+        console.log("LEFT");
+        console.log(roomId);
+        console.log(clientId);
+        console.log("LEFT");
         await deleteDoc(doc(firestore, "rooms", roomId, "clients", clientId));
+
+        // Clean up all signals involving this client
+        const signalsCol = collection(firestore, "rooms", roomId, "signals");
+        const signalsSnap = await getDocs(signalsCol);
+        for (const signalDoc of signalsSnap.docs) {
+            if (signalDoc.id.includes(clientId)) {
+                // Delete all candidates in this signal
+                const candidatesCol = collection(
+                    signalsCol,
+                    signalDoc.id,
+                    "candidates"
+                );
+                const candidatesSnap = await getDocs(candidatesCol);
+                for (const candDoc of candidatesSnap.docs) {
+                    await deleteDoc(candDoc.ref);
+                }
+                // Delete the signal doc itself
+                await deleteDoc(signalDoc.ref);
+            }
+        }
+
         Object.values(pcs).forEach((pc) => pc.close());
         setPcs({});
         setRemoteStreams({});
@@ -362,6 +399,12 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
                     className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 ml-2"
                 >
                     Leave Room
+                </button>
+                <button
+                    onClick={() => setRoomId("1212")}
+                    className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-red-600 ml-2"
+                >
+                    ROM
                 </button>
             </div>
             <button
