@@ -102,13 +102,7 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
             joined: Date.now(),
         });
 
-        console.log("JOINED");
-        console.log(roomId);
-        console.log(clientId);
-        console.log("JOINED");
-
         // Listen for other clients
-
         setHasJoined(true);
     }
 
@@ -310,10 +304,6 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
             unsubRef.current();
             unsubRef.current = null;
         }
-        console.log("LEFT");
-        console.log(roomId);
-        console.log(clientId);
-        console.log("LEFT");
         await deleteDoc(doc(firestore, "rooms", roomId, "clients", clientId));
 
         // Clean up all signals involving this client
