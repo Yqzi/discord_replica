@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Sidebar from "./sidebar";
 import TextChannel from "./text_channel";
 import UserCount from "./user_count";
@@ -7,6 +7,10 @@ import VoiceChannel from "./voice_channel";
 
 export default function Temp() {
     const [selectedChannel, setSelectedChannel] = useState(0);
+    const voiceChannelRef = useRef<{
+        joinRoom: () => void;
+    }>(null);
+
     return (
         <div className="flex flex-col w-full h-screen">
             <div className="min-h-7 max-h-7 flex bg-[#121214] text-xs justify-center items-center flex-row">
@@ -21,10 +25,13 @@ export default function Temp() {
                 <Sidebar
                     selectedChannel={selectedChannel}
                     setSelectedChannel={setSelectedChannel}
+                    joinRoom={() => voiceChannelRef.current?.joinRoom()}
                 />
                 {selectedChannel === 0 ? <TextChannel /> : null}
                 {selectedChannel === 0 ? <UserCount /> : null}
-                {selectedChannel === 1 ? <VoiceChannel /> : null}
+                {selectedChannel === 1 ? (
+                    <VoiceChannel ref={voiceChannelRef} />
+                ) : null}
             </div>
         </div>
     );

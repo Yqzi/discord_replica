@@ -16,11 +16,13 @@ const buttons = [
 type SidebarProps = {
     selectedChannel: number;
     setSelectedChannel: (index: number) => void;
+    joinRoom: () => void;
 };
 
 export default function Sidebar({
     selectedChannel,
     setSelectedChannel,
+    joinRoom,
 }: SidebarProps) {
     const [activeIndex, setActiveIndex] = useState(0);
 
@@ -131,7 +133,10 @@ export default function Sidebar({
                                         : "hover:bg-[#252529a6] hover:text-white"
                                 }
                             `}
-                                onClick={() => setSelectedChannel(1)}
+                                onClick={() => {
+                                    joinRoom();
+                                    return setSelectedChannel(1);
+                                }}
                             >
                                 <IoMdVolumeHigh
                                     className={`text-xl ${

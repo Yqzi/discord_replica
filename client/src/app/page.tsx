@@ -298,17 +298,9 @@ export default function Home() {
             </button>
             <div className="videos">
                 <span>
-                    <h3>Local Stream</h3>
-                    <video
-                        ref={userVideo}
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{ width: 200, margin: 8 }}
-                    />
+                    <video ref={userVideo} autoPlay playsInline muted />
                 </span>
                 <span>
-                    <h3>Remote Streams</h3>
                     {Object.entries(remoteStreams).map(([id, stream]) =>
                         stream ? (
                             <video
@@ -318,7 +310,6 @@ export default function Home() {
                                 ref={(el) => {
                                     if (el && stream) el.srcObject = stream;
                                 }}
-                                style={{ width: 200, margin: 8 }}
                             />
                         ) : null
                     )}
