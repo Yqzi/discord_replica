@@ -66,10 +66,38 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
                         await setupConnection(otherId, clientId);
                     }
                 });
+
+                Object.keys(pcs).forEach(async (otherId) => {
+                    if (!snapshot.docs.find((d) => d.id === otherId)) {
+                        pcs[otherId].close();
+                        setPcs((prev) => {
+                            const copy = { ...prev };
+                            delete copy[otherId];
+                            return copy;
+                        });
+                    }
+                });
             }
         );
         unsubRef.current = unsub;
-        return () => unsub();
+
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            leaveRoom();
+        };
+
+        const handleUnload = () => {
+            leaveRoom();
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        window.addEventListener("unload", handleUnload);
+
+        return () => {
+            unsub();
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+            window.removeEventListener("unload", handleUnload);
+        };
     }, [roomId, clientId, pcs]);
 
     // 1. Join a room
