@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaSearch, FaUser, FaCog, FaPlus } from "react-icons/fa";
 import { IoIosArrowDown, IoMdVolumeHigh } from "react-icons/io";
 import { MdPersonAddAlt1 } from "react-icons/md";
@@ -17,14 +17,23 @@ type SidebarProps = {
     selectedChannel: number;
     setSelectedChannel: (index: number) => void;
     joinRoom: () => void;
+    webcamButtonOnClick: () => void;
 };
 
 export default function Sidebar({
     selectedChannel,
     setSelectedChannel,
     joinRoom,
+    webcamButtonOnClick,
 }: SidebarProps) {
     const [activeIndex, setActiveIndex] = useState(0);
+
+    useEffect(() => {
+        if (selectedChannel === 1) {
+            webcamButtonOnClick();
+            joinRoom();
+        }
+    }, [selectedChannel]);
 
     return (
         <div className="flex flex-col bg-[#121214]">
@@ -133,10 +142,7 @@ export default function Sidebar({
                                         : "hover:bg-[#252529a6] hover:text-white"
                                 }
                             `}
-                                onClick={() => {
-                                    joinRoom();
-                                    return setSelectedChannel(1);
-                                }}
+                                onClick={() => setSelectedChannel(1)}
                             >
                                 <IoMdVolumeHigh
                                     className={`text-xl ${

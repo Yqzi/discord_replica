@@ -10,6 +10,7 @@ export default function Temp() {
     const [selectedChannel, setSelectedChannel] = useState(0);
     const voiceChannelRef = useRef<{
         joinRoom: () => void;
+        webcamButtonOnClick: () => void;
     }>(null);
 
     return (
@@ -27,6 +28,9 @@ export default function Temp() {
                     selectedChannel={selectedChannel}
                     setSelectedChannel={setSelectedChannel}
                     joinRoom={() => voiceChannelRef.current?.joinRoom()}
+                    webcamButtonOnClick={() =>
+                        voiceChannelRef.current?.webcamButtonOnClick()
+                    }
                 />
                 {selectedChannel === 0 ? <TextChannel /> : null}
                 {selectedChannel === 0 ? <UserCount /> : null}

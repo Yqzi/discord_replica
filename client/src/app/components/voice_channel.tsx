@@ -34,7 +34,10 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
     return result;
 }
 
-const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
+const VoiceChannel = forwardRef<
+    { joinRoom: () => void; webcamButtonOnClick: () => void },
+    {}
+>((props, ref) => {
     const app = initializeApp(firebaseConfig);
     const firestore = getFirestore(app);
 
@@ -102,16 +105,15 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
 
     // 1. Join a room
     async function joinRoom() {
-        if (!roomId) {
-            console.log("CREATING ROOM");
-            setRoomId("1212");
-        }
+        console.log('"HERRO');
+        const newRoomId = "1212";
+        setRoomId("1212");
 
         const myId = user.user?.uid ?? "";
         setClientId(myId);
 
         // Add self to room
-        await setDoc(doc(firestore, "rooms", roomId, "clients", myId), {
+        await setDoc(doc(firestore, "rooms", newRoomId, "clients", myId), {
             joined: Date.now(),
         });
 
@@ -136,6 +138,7 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
 
     useImperativeHandle(ref, () => ({
         joinRoom,
+        webcamButtonOnClick,
     }));
 
     // 2. Setup peer connection and signaling for each other client
@@ -394,37 +397,6 @@ const VoiceChannel = forwardRef<{ joinRoom: () => void }, {}>((props, ref) => {
 
     return (
         <>
-            <h2>Room-based Group Call (2 or 3 people)</h2>
-            <div>
-                <input
-                    type="text"
-                    placeholder="Room name"
-                    value={roomId}
-                    onChange={(e) => setRoomId(e.target.value)}
-                    style={{ padding: "10px", margin: "10px 0" }}
-                    disabled={hasJoined}
-                />
-                <button
-                    onClick={joinRoomd}
-                    disabled={hasJoined || !roomId}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-                >
-                    Join Room
-                </button>
-                <button
-                    onClick={leaveRoom}
-                    disabled={!hasJoined}
-                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 ml-2"
-                >
-                    Leave Room
-                </button>
-                <button
-                    onClick={() => setRoomId("1212")}
-                    className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-red-600 ml-2"
-                >
-                    ROM
-                </button>
-            </div>
             <button
                 id="webcamButton"
                 onClick={webcamButtonOnClick}
