@@ -42,6 +42,7 @@ const VoiceChannel = forwardRef<
     const firestore = getFirestore(app);
 
     const [roomId, setRoomId] = useState("");
+    const [cameraActive, setCameraActive] = useState(false);
     const [clientId, setClientId] = useState("");
     const [pcs, setPcs] = useState<{ [id: string]: RTCPeerConnection }>({});
     const [remoteStreams, setRemoteStreams] = useState<{
@@ -105,7 +106,8 @@ const VoiceChannel = forwardRef<
 
     // 1. Join a room
     async function joinRoom() {
-        console.log('"HERRO');
+        if (hasJoined) return;
+        // TODO change number to be dynamic
         const newRoomId = "1212";
         setRoomId("1212");
 
@@ -119,20 +121,6 @@ const VoiceChannel = forwardRef<
 
         // Listen for other clients
 
-        setHasJoined(true);
-    }
-
-    async function joinRoomd() {
-        if (!roomId) return;
-        const myId = user.user!.uid;
-        setClientId(myId);
-
-        // Add self to room
-        await setDoc(doc(firestore, "rooms", roomId, "clients", myId), {
-            joined: Date.now(),
-        });
-
-        // Listen for other clients
         setHasJoined(true);
     }
 
@@ -319,7 +307,7 @@ const VoiceChannel = forwardRef<
     // 3. Start webcam and store local stream
     async function webcamButtonOnClick() {
         const localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
+            video: cameraActive,
             audio: true,
         });
         localStreamRef.current = localStream;

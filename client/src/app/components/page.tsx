@@ -32,11 +32,29 @@ export default function Temp() {
                         voiceChannelRef.current?.webcamButtonOnClick()
                     }
                 />
-                {selectedChannel === 0 ? <TextChannel /> : null}
-                {selectedChannel === 0 ? <UserCount /> : null}
-                {selectedChannel === 1 ? (
-                    <VoiceChannel ref={voiceChannelRef} />
-                ) : null}
+                <div className="relative flex-1">
+                    {/* TextChannel and UserCount stack */}
+                    <div
+                        className={`absolute inset-0 transition-opacity duration-300 flex flex-row flex-1 h-[calc(100vh-1.75rem)]  ${
+                            selectedChannel === 0
+                                ? "opacity-100 z-10"
+                                : "opacity-0 z-0 pointer-events-none"
+                        }`}
+                    >
+                        <TextChannel />
+                        <UserCount />
+                    </div>
+                    {/* VoiceChannel stack */}
+                    <div
+                        className={`absolute inset-0 transition-opacity duration-300 ${
+                            selectedChannel === 1
+                                ? "opacity-100 z-10"
+                                : "opacity-0 z-0 pointer-events-none"
+                        }`}
+                    >
+                        <VoiceChannel ref={voiceChannelRef} />
+                    </div>
+                </div>
             </div>
         </div>
     );
