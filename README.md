@@ -2,7 +2,7 @@
 
 ###
 
-<p align="left">This is a real time voice and video chat app inspired by Discord!</p>
+<p align="left">A real time voice and video chat app inspired by Discord!</p>
 
 ###
 
