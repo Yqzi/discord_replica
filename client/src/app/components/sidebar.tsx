@@ -8,22 +8,32 @@ import { TbMicrophoneFilled } from "react-icons/tb";
 import { HiOutlineHashtag } from "react-icons/hi";
 import { IoCloseOutline } from "react-icons/io5";
 
-const buttons = [{ icon: <FaDiscord />, label: "Main" }];
+type Channel = {
+    icon: React.ReactNode;
+    label: string;
+};
 
-type SidebarProps = {
+interface SidebarProps {
     selectedChannel: number;
     setSelectedChannel: (index: number) => void;
+    selectedLobby: number;
+    setSelectedLobby: (index: number) => void;
     joinRoom: () => void;
     webcamButtonOnClick: () => void;
-};
+    channels?: Channel[];
+}
 
 export default function Sidebar({
     selectedChannel,
     setSelectedChannel,
+    selectedLobby,
+    setSelectedLobby,
     joinRoom,
     webcamButtonOnClick,
+    channels = [{ icon: <FaDiscord />, label: "Main" }],
 }: SidebarProps) {
-    const [activeIndex, setActiveIndex] = useState(0);
+    const [activeIndex, setActiveIndex] = useState(selectedChannel);
+    const [activeLobby, setActiveLobby] = useState(selectedLobby);
     const [copied, setCopied] = useState(false);
     const [showInviteDialog, setShowInviteDialog] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
@@ -49,27 +59,27 @@ export default function Sidebar({
         <div className="flex flex-col bg-[#121214]">
             <div className="flex flex-row h-full">
                 <div className="flex flex-col w-[70px] h-full bg-[#121214]">
-                    {buttons.map((btn, idx) => (
-                        <div>
-                            <div
-                                key={btn.label}
-                                className="flex flex-row items-center my-1 text-2xl"
-                            >
+                    {channels.map((btn, idx) => (
+                        <div key={btn.label}>
+                            <div className="flex flex-row items-center my-1 text-2xl">
                                 {/* Indicator */}
                                 <div
                                     className={`h-10 w-1 rounded-r-full transition-all ${
-                                        activeIndex === idx
+                                        selectedLobby === idx
                                             ? "bg-white"
                                             : "bg-transparent"
                                     }`}
                                 />
                                 <button
                                     className={`w-10 h-10 ml-2 rounded-xl flex items-center justify-center transition-colors ${
-                                        activeIndex === idx
+                                        selectedLobby === idx
                                             ? "bg-blue-600 text-white"
                                             : "bg-gray-800 text-gray-400 hover:bg-blue-700 hover:text-white cursor-pointer"
                                     }`}
-                                    onClick={() => setActiveIndex(idx)}
+                                    onClick={() => {
+                                        setActiveIndex(idx);
+                                        setSelectedLobby(idx);
+                                    }}
                                 >
                                     {btn.icon}
                                 </button>

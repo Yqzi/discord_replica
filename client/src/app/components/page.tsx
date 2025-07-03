@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { FaDiscord } from "react-icons/fa";
 import Sidebar from "./sidebar";
 import TextChannel from "./text_channel";
 import UserCount from "./user_count";
@@ -9,23 +9,56 @@ import { useAuth } from "../auth_provider";
 
 export default function Temp() {
     const [selectedChannel, setSelectedChannel] = useState(0);
+    const [selectedLobby, setSelectedLobby] = useState(0);
+    const [channels, setChannels] = useState([
+        { icon: <FaDiscord />, label: "Main" },
+    ]);
     const voiceChannelRef = useRef<{
         joinRoom: () => void;
         webcamButtonOnClick: () => void;
     }>(null);
 
     // Invite dialog state
-    const searchParams = useSearchParams();
     const [showInviteDialog, setShowInviteDialog] = useState(false);
     const [inviteRoomId, setInviteRoomId] = useState<string | null>(null);
 
     useEffect(() => {
-        const roomId = searchParams.get("inviteRoomId");
-        if (roomId) {
-            setInviteRoomId(roomId);
-            setShowInviteDialog(true);
+        // Check sessionStorage for inviteRoomId
+        if (typeof window !== "undefined") {
+            const roomId = sessionStorage.getItem("inviteRoomId");
+            if (roomId) {
+                setInviteRoomId(roomId);
+                setShowInviteDialog(true);
+                sessionStorage.removeItem("inviteRoomId"); // Optionally clear it after use
+            }
         }
-    }, [searchParams]);
+    }, []);
+
+    // Render the correct page for the selected channel
+    let channelContent;
+    if (selectedLobby === 0) {
+        channelContent = (
+            <div
+                className={`absolute inset-0 transition-opacity duration-300 flex flex-row flex-1 h-[calc(100vh-1.75rem)] ${
+                    selectedLobby === 0
+                        ? "opacity-100 z-10"
+                        : "opacity-0 z-0 pointer-events-none"
+                }`}
+            >
+                <TextChannel />
+                <UserCount />
+            </div>
+        );
+    } else {
+        // For each custom channel, render the same layout as the main page
+        channelContent = (
+            <div className="absolute inset-0 transition-opacity duration-300 flex flex-row flex-1 h-[calc(100vh-1.75rem)] opacity-100 z-10">
+                <TextChannel />
+                <UserCount />
+                {/* You can add more per-channel features here if needed */}
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col w-full h-screen">
@@ -40,7 +73,27 @@ export default function Temp() {
                         </p>
                         <button
                             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            onClick={() => setShowInviteDialog(false)}
+                            onClick={() => {
+                                if (
+                                    inviteRoomId &&
+                                    !channels.some(
+                                        (c) => c.label === inviteRoomId
+                                    )
+                                ) {
+                                    setChannels([
+                                        ...channels,
+                                        {
+                                            icon: (
+                                                <span className="text-lg font-bold">
+                                                    {inviteRoomId}
+                                                </span>
+                                            ),
+                                            label: inviteRoomId,
+                                        },
+                                    ]);
+                                }
+                                setShowInviteDialog(false);
+                            }}
                         >
                             Accept
                         </button>
@@ -59,34 +112,15 @@ export default function Temp() {
                 <Sidebar
                     selectedChannel={selectedChannel}
                     setSelectedChannel={setSelectedChannel}
+                    selectedLobby={selectedLobby}
+                    setSelectedLobby={setSelectedLobby}
                     joinRoom={() => voiceChannelRef.current?.joinRoom()}
                     webcamButtonOnClick={() =>
                         voiceChannelRef.current?.webcamButtonOnClick()
                     }
+                    channels={channels}
                 />
-                <div className="relative flex-1">
-                    {/* TextChannel and UserCount stack */}
-                    <div
-                        className={`absolute inset-0 transition-opacity duration-300 flex flex-row flex-1 h-[calc(100vh-1.75rem)]  ${
-                            selectedChannel === 0
-                                ? "opacity-100 z-10"
-                                : "opacity-0 z-0 pointer-events-none"
-                        }`}
-                    >
-                        <TextChannel />
-                        <UserCount />
-                    </div>
-                    {/* VoiceChannel stack */}
-                    <div
-                        className={`absolute inset-0 transition-opacity duration-300 ${
-                            selectedChannel === 1
-                                ? "opacity-100 z-10"
-                                : "opacity-0 z-0 pointer-events-none"
-                        }`}
-                    >
-                        <VoiceChannel ref={voiceChannelRef} />
-                    </div>
-                </div>
+                <div className="relative flex-1">{channelContent}</div>
             </div>
         </div>
     );
