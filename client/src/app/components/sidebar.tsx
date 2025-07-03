@@ -1,17 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import { FaSearch, FaUser, FaCog, FaPlus } from "react-icons/fa";
+import { FaUser, FaDiscord, FaPlus } from "react-icons/fa";
 import { IoIosArrowDown, IoMdVolumeHigh } from "react-icons/io";
 import { MdPersonAddAlt1 } from "react-icons/md";
 import { IoSettingsSharp } from "react-icons/io5";
 import { TbMicrophoneFilled } from "react-icons/tb";
 import { HiOutlineHashtag } from "react-icons/hi";
+import { IoCloseOutline } from "react-icons/io5";
 
-const buttons = [
-    { icon: <FaSearch />, label: "Search" },
-    { icon: <FaUser />, label: "User" },
-    { icon: <FaCog />, label: "Settings" },
-];
+const buttons = [{ icon: <FaDiscord />, label: "Main" }];
 
 type SidebarProps = {
     selectedChannel: number;
@@ -27,6 +24,9 @@ export default function Sidebar({
     webcamButtonOnClick,
 }: SidebarProps) {
     const [activeIndex, setActiveIndex] = useState(0);
+    const [copied, setCopied] = useState(false);
+    const [showInviteDialog, setShowInviteDialog] = useState(false);
+    const [isClosing, setIsClosing] = useState(false);
 
     useEffect(() => {
         if (selectedChannel === 1) {
@@ -34,6 +34,16 @@ export default function Sidebar({
             joinRoom();
         }
     }, [selectedChannel]);
+
+    function handleCloseInviteDialog() {
+        setIsClosing(true);
+        setTimeout(() => {
+            setShowInviteDialog(false);
+            setIsClosing(false);
+        }, 250); // match your animation duration
+    }
+
+    function inviteUser() {}
 
     return (
         <div className="flex flex-col bg-[#121214]">
@@ -43,7 +53,7 @@ export default function Sidebar({
                         <div>
                             <div
                                 key={btn.label}
-                                className="flex flex-row items-center my-1"
+                                className="flex flex-row items-center my-1 text-2xl"
                             >
                                 {/* Indicator */}
                                 <div
@@ -57,7 +67,7 @@ export default function Sidebar({
                                     className={`w-10 h-10 ml-2 rounded-xl flex items-center justify-center transition-colors ${
                                         activeIndex === idx
                                             ? "bg-blue-600 text-white"
-                                            : "bg-gray-800 text-gray-400 hover:bg-blue-700 hover:text-white"
+                                            : "bg-gray-800 text-gray-400 hover:bg-blue-700 hover:text-white cursor-pointer"
                                     }`}
                                     onClick={() => setActiveIndex(idx)}
                                 >
@@ -83,14 +93,126 @@ export default function Sidebar({
                     </span>
                     <div className="bg-[#29292d] w-full h-[1px] px-0"></div>
                     <div className="bg-[#121214] h-full flex flex-col space-y-4 items-start px-1.5 w-full">
-                        <div className="flex flex-row w-full items-center text-base font-light text-gray-500 gap-2 group cursor-pointer hover:bg-[#252529a6] rounded-lg transition-colors pl-2 py-1">
+                        <button
+                            onClick={() => setShowInviteDialog(true)}
+                            className="flex flex-row w-full items-center text-base font-light text-gray-500 gap-2 group cursor-pointer hover:bg-[#252529a6] rounded-lg transition-colors pl-2 py-1"
+                        >
                             <MdPersonAddAlt1 />
                             <span className="text-base font-light text-gray-500 transition-colors group-hover:text-white">
                                 Invite
                             </span>
                             <div className="flex-1" />
                             <FaPlus className="text-lg pr-2 invisible group-hover:visible" />
-                        </div>
+                        </button>
+                        {showInviteDialog && (
+                            <div
+                                className={`fixed inset-0 z-50 flex h-[100vh] items-center justify-center ${
+                                    isClosing ? "fadeOutBg" : ""
+                                }`}
+                                style={{
+                                    animation: isClosing
+                                        ? "fadeOutBg 0.25s ease"
+                                        : "fadeInBg 0.25s ease",
+                                }}
+                                onClick={handleCloseInviteDialog}
+                            >
+                                <div
+                                    className={`bg-[#242429] rounded-xl pt-2 pb-20 pl-6 pr-3 border-[#3b3b41] border-[1px] shadow-lg min-w-[500px] flex flex-col ${
+                                        isClosing ? "shrinkDialog" : ""
+                                    }`}
+                                    style={{
+                                        animation: isClosing
+                                            ? "shrinkDialog 0.25s cubic-bezier(0.4,0,0.2,1)"
+                                            : "growDialog 0.25s cubic-bezier(0.4,0,0.2,1)",
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="flex flex-row items-center justify-between">
+                                        <div className="flex flex-row items-center">
+                                            <MdPersonAddAlt1 className="mr-3 text-xl text-[#94959c]" />
+                                            Invite
+                                        </div>
+                                        <button
+                                            onClick={handleCloseInviteDialog}
+                                            className="ml-4 p-1 rounded transition-colors"
+                                            aria-label="Close"
+                                        >
+                                            <IoCloseOutline className="text-[26px] text-[#94959c] hover:text-white cursor-pointer" />
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-3 mt-12 mb-2">
+                                        <span className="text-white text-xl select-all">
+                                            {typeof window !== "undefined"
+                                                ? `${window.location.origin}/invite/1212`
+                                                : "/invite/1212"}
+                                        </span>
+                                        <button
+                                            className="px-3 py-1 mt-1 bg-[#5865f2] hover:bg-[#4750b3] text-white rounded transition-colors text-sm"
+                                            onClick={async () => {
+                                                const url =
+                                                    typeof window !==
+                                                    "undefined"
+                                                        ? `${window.location.origin}/invite/1212`
+                                                        : "/invite/1212";
+                                                await navigator.clipboard.writeText(
+                                                    url
+                                                );
+                                                setCopied(true);
+                                                setTimeout(
+                                                    () => setCopied(false),
+                                                    3000
+                                                );
+                                            }}
+                                            type="button"
+                                            disabled={copied}
+                                        >
+                                            {copied ? "Copied" : "Copy"}
+                                        </button>
+                                    </div>
+                                </div>
+                                <style jsx global>{`
+                                    @keyframes growDialog {
+                                        from {
+                                            transform: scale(0.6);
+                                            opacity: 0;
+                                        }
+                                        to {
+                                            transform: scale(1);
+                                            opacity: 1;
+                                        }
+                                    }
+                                    @keyframes shrinkDialog {
+                                        from {
+                                            transform: scale(1);
+                                            opacity: 1;
+                                        }
+                                        to {
+                                            transform: scale(0.6);
+                                            opacity: 0;
+                                        }
+                                    }
+                                    @keyframes fadeInBg {
+                                        from {
+                                            background: rgba(0, 0, 0, 0);
+                                        }
+                                        to {
+                                            background: rgba(0, 0, 0, 0.6);
+                                        }
+                                    }
+                                    @keyframes fadeOutBg {
+                                        from {
+                                            background: rgba(0, 0, 0, 0.6);
+                                        }
+                                        to {
+                                            background: rgba(0, 0, 0, 0);
+                                        }
+                                    }
+                                    .fixed.inset-0.z-50.flex.items-center.justify-center {
+                                        background: rgba(0, 0, 0, 0.6);
+                                    }
+                                `}</style>
+                            </div>
+                        )}
                         <div className="bg-[#29292d] w-full h-[1px]"></div>
                         <div className="flex flex-col items-start space-y-1 w-full">
                             <div className="flex flex-row gap-2 items-center group cursor-pointer transition-colors pl-2 py-0.5">
