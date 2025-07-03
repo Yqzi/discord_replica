@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { FaDiscord } from "react-icons/fa";
 import Sidebar from "./sidebar";
 import TextChannel from "./text_channel";
 import UserCount from "./user_count";
@@ -19,10 +18,6 @@ export default function Temp() {
     const searchParams = useSearchParams();
     const [showInviteDialog, setShowInviteDialog] = useState(false);
     const [inviteRoomId, setInviteRoomId] = useState<string | null>(null);
-
-    const [channels, setChannels] = useState([
-        { icon: <FaDiscord />, label: "Main", id: "main" },
-    ]);
 
     useEffect(() => {
         const roomId = searchParams.get("inviteRoomId");
@@ -45,26 +40,7 @@ export default function Temp() {
                         </p>
                         <button
                             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            onClick={() => {
-                                if (
-                                    inviteRoomId &&
-                                    !channels.some((c) => c.id === inviteRoomId)
-                                ) {
-                                    setChannels([
-                                        ...channels,
-                                        {
-                                            icon: (
-                                                <span className="text-lg font-bold">
-                                                    {inviteRoomId}
-                                                </span>
-                                            ),
-                                            label: inviteRoomId,
-                                            id: inviteRoomId,
-                                        },
-                                    ]);
-                                }
-                                setShowInviteDialog(false);
-                            }}
+                            onClick={() => setShowInviteDialog(false)}
                         >
                             Accept
                         </button>
@@ -87,7 +63,6 @@ export default function Temp() {
                     webcamButtonOnClick={() =>
                         voiceChannelRef.current?.webcamButtonOnClick()
                     }
-                    channels={channels}
                 />
                 <div className="relative flex-1">
                     {/* TextChannel and UserCount stack */}
